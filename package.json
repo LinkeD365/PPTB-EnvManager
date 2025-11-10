@@ -1,0 +1,36 @@
+{
+  "name": "@linked365/pptb-myfirsttool",
+  "version": "0.1.2",
+  "displayName": "MyFirstTool",
+  "description": "A Power Platform Tool Box tool",
+  "main": "index.html",
+  "author": "LinkeD365",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fluentui/react-components": "^9.72.4",
+    "@fluentui/react-icons": "^2.0.313",
+    "mobx": "^6.15.0",
+    "mobx-react": "^9.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@pptb/types": "^1.0.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^7.1.11"
+  },
+  "files": [
+    "dist"
+  ]
+}
