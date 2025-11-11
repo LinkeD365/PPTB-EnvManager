@@ -3,23 +3,25 @@ import { orgProp } from "../model/OrgSetting";
 interface dvServiceProps {
   connection: ToolBoxAPI.DataverseConnection | null;
   dvApi: DataverseAPI.API;
-   onLog: (
+  onLog: (
     message: string,
     type?: "info" | "success" | "warning" | "error"
   ) => void;
 }
 export class dvService {
-  
   connection: ToolBoxAPI.DataverseConnection | null;
   dvApi: DataverseAPI.API;
-  onLog: (message: string, type?: "info" | "success" | "warning" | "error") => void;
+  onLog: (
+    message: string,
+    type?: "info" | "success" | "warning" | "error"
+  ) => void;
 
   constructor(props: dvServiceProps) {
     this.connection = props.connection;
     this.dvApi = props.dvApi;
     this.onLog = props.onLog;
   }
-  
+
   async getOrgSettings(): Promise<[string, orgProp[]]> {
     this.onLog("Fetching organization settings...", "info");
     if (!this.connection || !this.connection.isActive)
@@ -53,20 +55,34 @@ export class dvService {
 
     return [orgid, currentRows];
   }
-
-  async updateOrgSettingsXml(updateString: string, orgId: string): Promise<void> {
+  async updateOrgSettingsXml(
+    updateString: string,
+    orgId: string
+  ): Promise<{ success: true } | { success: false; error: string }> {
     this.onLog("Updating organization settings...", "info");
-    console.log("Update string:", updateString);
-    if (!this.connection || !this.connection.isActive ) throw new Error("No Dataverse connection available");
+    
+   // console.log("Update string:", updateString);
 
-    await this.dvApi.update(
-      "organization",
-      orgId,
-      {
+    if (!this.connection || !this.connection.isActive) {
+      const errorMessage = "No Dataverse connection available";
+      this.onLog(errorMessage, "error");
+      return { success: false, error: errorMessage };
+    }
+
+    try {
+      await this.dvApi.update("organization", orgId, {
         orgdborgsettings: updateString,
-      }
-    );
+      });
 
-    this.onLog("Organization settings updated", "success");
-  }  
+      this.onLog("Organization settings updated", "success");
+      return { success: true };
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.onLog(
+        `Failed to update organization settings: ${errorMessage}`,
+        "error"
+      );
+      return { success: false, error: errorMessage };
+    }
+  }
 }

@@ -1,10 +1,10 @@
-# MyFirstTool
+# Environment Manager
 
-A Power Platform Tool Box tool
+A Power Platform Tool Box tool which allows you to edit some behind the scenes settings for Dataverse environments
 
 ## Features
 
-- ✅ React 18 with TypeScript
+- ✅ Enable / Disable settings 
 - ✅ Vite for fast development and building
 - ✅ Access to ToolBox API via `window.toolboxAPI`
 - ✅ Connection URL and access token handling

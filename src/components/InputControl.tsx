@@ -1,4 +1,4 @@
-import { Checkbox } from "@fluentui/react-components";
+import { Checkbox, Input } from "@fluentui/react-components";
 import React from "react";
 import { orgProp } from "../model/OrgSetting";
 import { runInAction } from "mobx";
@@ -12,19 +12,18 @@ interface InputControlProps {
 // Separate component for the toggle details to maintain state correctly
 export const InputControl = observer((props: InputControlProps): React.JSX.Element => {
 //  const { item, setItemNewValue } = props;
-  const [item, setStateItem] = React.useState(props.item);
+  const [item] = React.useState(props.item);
   //const [open, setOpen] = React.useState(false);
   const input = (() => {
     switch (item.type) {
       case "Boolean":
         return (
-          <div>{item.new}
+          <div>
             <Checkbox   
               aria-label={`${item.name} boolean`}
               checked={item.new === "true"}
               onClick={(e) => {
                 e.stopPropagation();
-                console.log("Checkbox clicked", item.new);
                 runInAction(() => {
                   item.new = item.new === "true" ? "false" : "true";
                   props.setItemNewValue(item, item.new );
@@ -35,22 +34,33 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
         );
       case "Number":
         return (
-          <input
+          <Input
             type="number"
             min={item.min ? Number(item.min) : undefined}
+            max={item.max ? Number(item.max) : undefined}
+            value={item.new}
             aria-label={`${item.name} number`}
-            onClick={(e) => {
+            onChange={(e) => {
               e.stopPropagation();
+              if (item.max && Number(e.target.value) > Number(item.max)) {
+                e.target.value = item.max;
+              }
+              if (item.min && Number(e.target.value) < Number(item.min)) {
+                e.target.value = item.min;
+              }
+              props.setItemNewValue(item, e.target.value);
             }}
           />
         );
       case "String":
         return (
-          <input
+          <Input 
             type="text"
+            value={item.new}
             aria-label={`${item.name} text`}
-            onClick={(e) => {
+            onChange={(e) => {
               e.stopPropagation();
+              props.setItemNewValue(item, e.target.value);
             }}
           />
         );

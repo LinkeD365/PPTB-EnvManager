@@ -1,4 +1,4 @@
-import { makeObservable, observable } from 'mobx';
+import { makeAutoObservable } from 'mobx';
 export class orgProp{
     name: string;
     current: string; //value from API
@@ -12,23 +12,16 @@ export class orgProp{
     default?: string;
     edit?: boolean;
     options?: propOptions[];
+    url?: string;
+    urlTitle?: string;
+    linkeD365Url?: string;
+    linkeD365Description?: string;
 
     constructor(){
         this.current = '';
         this.name = '';
 
-        makeObservable(this, {
-            name: observable,
-            current: observable,
-            new: observable,
-            type: observable,
-            min: observable,
-            max: observable,
-            minVersion: observable,
-            maxVersion: observable,
-            default: observable,
-            options: observable
-        });
+        makeAutoObservable(this);
     }
 }
 

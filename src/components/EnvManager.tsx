@@ -10,7 +10,6 @@ import {
   DataGrid,
   TableColumnDefinition,
   createTableColumn,
-  TableCellLayout,
   DataGridHeader,
   DataGridBody,
   DataGridCell,
@@ -18,17 +17,19 @@ import {
   DataGridRow,
   TableRowId,
   DataGridProps,
-  Accordion,
-  AccordionItem,
-  AccordionHeader,
-  AccordionPanel,
   Button,
-  Label,
+  makeStyles,
+  tokens,
 } from "@fluentui/react-components";
 import { dvService } from "../utils/dataverse";
 import { orgProp } from "../model/OrgSetting";
-import { autorun, observable, runInAction } from "mobx";
+import { observable, runInAction } from "mobx";
 import { InputControl } from "./InputControl";
+import { InfoPopup } from "./Info";
+
+const useStyles = makeStyles({
+  root: { color: "red", backgroundColor: tokens.colorNeutralBackground1 },
+});
 
 interface EnvManagerProps {
   connection: ToolBoxAPI.DataverseConnection | null;
@@ -67,26 +68,164 @@ function setItemNewValue(item: orgProp, newValue: string) {
 
 export const EnvManager = observer(
   (props: EnvManagerProps): React.JSX.Element => {
-    autorun(() => {
-      console.log(
-        "Remaining:",
-        viewModel.fullList
-          .filter((orgProp) => orgProp.edit)
-          .map((orgProp) => orgProp.name)
-          .join(", ")
-      );
-    });
     const { connection, isLoading, viewModel, onLog, dvService } = props;
-    //  const [orgSettings, setOrgSettings] = React.useState<any>(null);
     const [loadingSettings, setLoadingSettings] = React.useState(false);
+    const classes = useStyles();
+
     const [selectedRows, setSelectedRows] = React.useState(
       new Set<TableRowId>([1])
     );
+
+    React.useEffect(() => {
+      onLog("EnvManager mounted", "info");
+      getMcneXML();
+    }, []);
+
+    //Get current settings
+    React.useEffect(() => {
+      onLog("Loading organization settings...", "info");
+
+      fetchOrgSettings();
+    }, [connection, viewModel.blankList.length]);
+
     const onSelectionChange: DataGridProps["onSelectionChange"] = (
       _e,
       data
     ) => {
       setSelectedRows(data.selectedItems);
+    };
+
+    // Get the Sean Mcne Xml
+    const getMcneXML = async () => {
+      const url =
+        "https://raw.githubusercontent.com/seanmcne/OrgDbOrgSettings/master/mspfedyn_/OrgDbOrgSettings/Solution/WebResources/mspfedyn_/OrgDbOrgSettings/Settings.xml";
+      try {
+        const res = await fetch(url);
+        if (!res.ok)
+          throw new Error(`Network response was not ok (${res.status})`);
+        const xmlSeanMcNe = await res.text();
+
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlSeanMcNe, "application/xml");
+        const defaultOrgSettingsNode =
+          xmlDoc.getElementsByTagName("defaultOrgSettings")[0];
+        // console.log(
+        //   "defaultOrgSettingsNode:",
+        //   defaultOrgSettingsNode.childNodes
+        // );
+        if (defaultOrgSettingsNode) {
+          viewModel.blankList = Array.from(defaultOrgSettingsNode.childNodes)
+            .filter(
+              (node) =>
+                node.nodeType === 1 &&
+                (node as Element).nodeName === "orgSetting" &&
+                (node as Element).getAttribute("isOrganizationAttribute") ===
+                  "false"
+            )
+            .map((node) => {
+              const el = node as Element;
+
+              const setting = new orgProp();
+              setting.name = el.getAttribute("name") || "";
+              setting.description = el.getAttribute("description") || "";
+              setting.type = el.getAttribute("settingType") || "";
+              setting.min = el.getAttribute("min") || "";
+              setting.max = el.getAttribute("max") || "";
+              setting.maxVersion = el.getAttribute("maxSupportedVersion") || "";
+              setting.minVersion = el.getAttribute("minSupportedVersion") || "";
+              setting.default = el.getAttribute("defaultValue") || "";
+              setting.url = el.getAttribute("supportUrl") || "";
+              setting.urlTitle = el.getAttribute("urlTitle") || "";
+
+              console.log("Parsed setting:", setting);
+              return setting;
+            });
+          const linkeD365Url =
+            "https://raw.githubusercontent.com/LinkeD365/OrgSettings/master/LinkeD65OrgSettings.xml";
+          const linkedD365res = await fetch(linkeD365Url);
+          if (!linkedD365res.ok)
+            throw new Error(
+              `Network response was not ok (${linkedD365res.status})`
+            );
+          const xmlLD365 = await linkedD365res.text();
+
+          const xmlLD365Doc = parser.parseFromString(
+            xmlLD365,
+            "application/xml"
+          );
+          // Merge LinkedD365 info into existing fullList by matching names
+          const linkedElements = Array.from(
+            xmlLD365Doc.getElementsByTagName("orgSetting")
+          ) as Element[];
+          console.log("Fetched LinkedD365 XML:", linkedElements);
+          runInAction(() => {
+            if (!Array.isArray(viewModel.blankList)) return;
+
+            linkedElements.forEach((el) => {
+              const name = (el.getAttribute("name") || "").trim();
+
+              const target = viewModel.blankList.find(
+                (f) => (f.name || "").toLowerCase() === name.toLowerCase()
+              );
+              if (target) {
+                target.linkeD365Url = el.getAttribute("url") || "";
+                target.linkeD365Description =
+                  el.getAttribute("description") || "";
+              }
+            });
+          });
+        } else {
+          viewModel.fullList = [];
+        }
+        onLog("Sean McNe XML downloaded", "success");
+      } catch (error) {
+        onLog(`Failed to download Sean McNe XML: ${String(error)}`, "error");
+      }
+    };
+
+    const fetchOrgSettings = async () => {
+      if (!connection || !connection.isActive) {
+        window.toolboxAPI.utils.showNotification({
+          title: "No active connection",
+          body: "Please connect to a Dataverse environment to use this tool.",
+          type: "error",
+          duration: 3000,
+        });
+        return;
+      }
+
+      setLoadingSettings(true);
+      await dvService.getOrgSettings().then(([orgId, settings]) => {
+        console.log("Fetched org settings:", orgId, settings);
+        viewModel.orgId = orgId;
+        if (
+          Array.isArray(viewModel.blankList) &&
+          viewModel.blankList.length > 0 &&
+          Array.isArray(settings) &&
+          settings.length > 0
+        ) {
+          const rowMap = new Map(
+            settings.map((r) => [r.name?.toLowerCase() ?? "", r])
+          );
+
+          runInAction(() => {
+            viewModel.fullList = observable([]);
+            console.log("blank count:", viewModel.blankList.length);
+            viewModel.blankList.forEach((f) => {
+              console.log("Merging setting:", f.name);
+              const match = rowMap.get(f.name?.toLowerCase() ?? "");
+              if (match) {
+                // Prefer the value from rows for current if present
+                if (match.current && match.current !== "") {
+                  f.current = match.current;
+                }
+              }
+              viewModel.fullList.push(f);
+            });
+          });
+        }
+      });
+      setLoadingSettings(false);
     };
 
     function saveOrgSettings(): void {
@@ -115,7 +254,7 @@ export const EnvManager = observer(
         try {
           let updateString = "<orgSettings>";
           viewModel.fullList
-            .filter((it) => it.current)
+            .filter((it) => it.current || it.new)
             .forEach((it) => {
               updateString += `<${it.name}>${it.new ?? it.current}</${
                 it.name
@@ -123,17 +262,20 @@ export const EnvManager = observer(
             });
           updateString += "</orgSettings>";
 
-          await dvService.updateOrgSettingsXml(updateString, viewModel.orgId);
-
-          // Update local viewModel state after successful save
-          runInAction(() => {
-            editedItems.forEach((it) => {
-              it.current = it.new ?? it.current;
-              it.edit = false;
+          await dvService
+            .updateOrgSettingsXml(updateString, viewModel.orgId)
+            .then(async (result) => {
+              if (!result.success) {
+                throw new Error(result.error);
+              }
+              await window.toolboxAPI.utils.showNotification({
+                title: "Organization Settings Saved",
+                body: "The organization settings have been successfully saved.",
+              });
             });
-          });
 
           onLog("Organization settings saved", "success");
+          fetchOrgSettings();
         } catch (err) {
           onLog(`Failed to save org settings: ${String(err)}`, "error");
         }
@@ -152,20 +294,10 @@ export const EnvManager = observer(
         },
         renderCell: (item) => {
           return (
-            <span>
-              <Accordion collapsible>
-                <AccordionItem value="{item.name}">
-                  <AccordionHeader>{item.name}</AccordionHeader>
-                  <AccordionPanel>{item.description}</AccordionPanel>
-                </AccordionItem>
-              </Accordion>
-              {/* <details style={{ margin: 0 }}>
-                  <summary style={{ cursor: "pointer", listStyle: "none" }}>
-                    {item.name}
-                  </summary>
-                  <div style={{ paddingTop: 8 }}>{item.description}</div>
-                </details> */}
-            </span>
+            <div style={{ verticalAlign: "top" }}>
+              {item.name}
+              <InfoPopup item={item}></InfoPopup>
+            </div>
           );
         },
       }),
@@ -178,19 +310,7 @@ export const EnvManager = observer(
           return "Current Value";
         },
         renderCell: (item) => {
-          return <TableCellLayout>{item.current}</TableCellLayout>;
-        },
-      }),
-      createTableColumn<orgProp>({
-        columnId: "type",
-        compare: (a, b) => {
-          return (a.type ?? "").localeCompare(b.type ?? "");
-        },
-        renderHeaderCell: () => {
-          return "Setting Type";
-        },
-        renderCell: (item) => {
-          return <TableCellLayout>{item.type}</TableCellLayout>;
+          return <div>{item.current}</div>;
         },
       }),
       createTableColumn<orgProp>({
@@ -200,34 +320,45 @@ export const EnvManager = observer(
         },
         renderCell: (item) => {
           return (
-              <TableCellLayout>
-                {item.new}
-                <InputControl key={item.name}
-                 // key={item.name}
-                  item={item}
-                  setItemNewValue={setItemNewValue}
-                />
-              </TableCellLayout>
-
+            <div>
+              <InputControl
+                key={item.name}
+                // key={item.name}
+                item={item}
+                setItemNewValue={setItemNewValue}
+              />
+            </div>
           );
         },
       }),
+      // createTableColumn<orgProp>({
+      //   columnId: "type",
+      //   compare: (a, b) => {
+      //     return (a.type || "").localeCompare(b.type || "");
+      //   },
+      //   renderHeaderCell: () => {
+      //     return "Setting Type";
+      //   },
+      //   renderCell: (item) => {
+      //     return <div style={{ verticalAlign: "top" }}>{item.type}</div>;
+      //   },
+      // }),
       createTableColumn<orgProp>({
         columnId: "Edit",
         renderHeaderCell: () => {
           return viewModel.fullList.some((i) => i.edit) ? (
             <div
               style={{
-                minWidth: 140,
-                flexDirection: "row",
+                width: "100%",
                 display: "flex",
-                justifyContent: "right",
+                justifyContent: "flex-end",
+                alignItems: "center",
               }}
             >
               <Button
                 icon={<Save20Filled />}
                 onClick={() => saveOrgSettings()}
-              ></Button>
+              />
             </div>
           ) : (
             ""
@@ -237,10 +368,10 @@ export const EnvManager = observer(
           return (
             <div
               style={{
-                minWidth: 140,
-                flexDirection: "row",
+                width: "100%",
                 display: "flex",
-                justifyContent: "right",
+                justifyContent: "flex-end",
+                alignItems: "center",
               }}
             >
               {item.edit ? (
@@ -263,119 +394,21 @@ export const EnvManager = observer(
     const columnSizingOptions = {
       name: {
         minWidth: 80,
-        maxWidth: 400,
-        defaultWidth: 300,
+        maxWidth: 500,
+        defaultWidth: 400,
       },
       current: {
-        defaultWidth: 100,
+        defaultWidth: 150,
         minWidth: 30,
-        idealWidth: 80,
+        idealWidth: 200,
+      },
+      Edit: {
+        defaultWidth: 30,
+        minWidth: 30,
+        maxWidth: 30,
+        idealWidth: 30,
       },
     };
-    // Get the Sean Mcne Xml
-    React.useEffect(() => {
-      onLog("EnvManager mounted", "info");
-      (async () => {
-        const url =
-          "https://raw.githubusercontent.com/seanmcne/OrgDbOrgSettings/master/mspfedyn_/OrgDbOrgSettings/Solution/WebResources/mspfedyn_/OrgDbOrgSettings/Settings.xml";
-        try {
-          const res = await fetch(url);
-          if (!res.ok)
-            throw new Error(`Network response was not ok (${res.status})`);
-          const xmlSeanMcNe = await res.text();
-
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(xmlSeanMcNe, "application/xml");
-          const defaultOrgSettingsNode =
-            xmlDoc.getElementsByTagName("defaultOrgSettings")[0];
-          console.log(
-            "defaultOrgSettingsNode:",
-            defaultOrgSettingsNode.childNodes
-          );
-          if (defaultOrgSettingsNode) {
-            viewModel.fullList = observable(
-              Array.from(defaultOrgSettingsNode.childNodes)
-                .filter(
-                  (node) =>
-                    node.nodeType === 1 &&
-                    (node as Element).nodeName === "orgSetting" &&
-                    (node as Element).getAttribute(
-                      "isOrganizationAttribute"
-                    ) === "false"
-                )
-                .map((node) => {
-                  const el = node as Element;
-
-                  const setting = new orgProp();
-                  setting.name = el.getAttribute("name") || "";
-                  setting.description = el.getAttribute("description") || "";
-                  setting.type = el.getAttribute("settingType") || "";
-                  setting.min = el.getAttribute("min") || "";
-                  setting.max = el.getAttribute("max") || "";
-                  setting.maxVersion =
-                    el.getAttribute("maxSupportedVersion") || "";
-                  setting.minVersion =
-                    el.getAttribute("minSupportedVersion") || "";
-                  setting.default = el.getAttribute("defaultValue") || "";
-
-                  console.log("Parsed setting:", setting);
-                  return setting;
-                })
-            );
-          } else {
-            viewModel.fullList = [];
-          }
-          onLog("Sean McNe XML downloaded", "success");
-        } catch (error) {
-          onLog(`Failed to download Sean McNe XML: ${String(error)}`, "error");
-        }
-      })();
-    }, []);
-
-    //Get current settings
-    React.useEffect(() => {
-      onLog("Loading organization settings...", "info");
-      const fetchOrgSettings = async () => {
-        if (!connection || !connection.isActive) {
-          window.toolboxAPI.utils.showNotification({
-            title: "No active connection",
-            body: "Please connect to a Dataverse environment to use this tool.",
-            type: "error",
-            duration: 3000,
-          });
-          return;
-        }
-
-        setLoadingSettings(true);
-        await dvService.getOrgSettings().then(([orgId, settings]) => {
-          console.log("Fetched org settings:", orgId, settings);
-          viewModel.orgId = orgId;
-          if (
-            Array.isArray(viewModel.fullList) &&
-            viewModel.fullList.length > 0 &&
-            Array.isArray(settings) &&
-            settings.length > 0
-          ) {
-            const rowMap = new Map(
-              settings.map((r) => [r.name?.toLowerCase() ?? "", r])
-            );
-
-            viewModel.fullList.forEach((f) => {
-              const match = rowMap.get(f.name?.toLowerCase() ?? "");
-              if (match) {
-                // Prefer the value from rows for current if present
-                if (match.current && match.current !== "") {
-                  f.current = match.current;
-                }
-              }
-            });
-          }
-        });
-        setLoadingSettings(false);
-      };
-
-      fetchOrgSettings();
-    }, [connection, viewModel.fullList.length]);
 
     if (isLoading || loadingSettings) {
       return (
@@ -409,6 +442,7 @@ export const EnvManager = observer(
           <div className="info-box">
             {/* <div>{viewModel.fullList.length} settings loaded. test</div> */}
             <DataGrid
+              className={classes.root}
               items={viewModel.fullList}
               columns={columns}
               aria-label="Organization Settings"
@@ -416,6 +450,7 @@ export const EnvManager = observer(
               selectionMode="single"
               selectedItems={selectedRows}
               onSelectionChange={onSelectionChange}
+              subtleSelection
               resizableColumns
               columnSizingOptions={columnSizingOptions}
             >
@@ -424,7 +459,7 @@ export const EnvManager = observer(
                   position: "sticky",
                   top: 0,
                   zIndex: 10,
-                  background: "transparent",
+                  backgroundColor: tokens.colorNeutralBackground2,
                   boxShadow: "0 1px 0 rgba(0,0,0,0.06)",
                 }}
               >
