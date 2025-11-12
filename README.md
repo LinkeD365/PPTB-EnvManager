@@ -6,7 +6,9 @@ A Power Platform Tool Box tool which allows you to edit some behind the scenes s
 
 - ✅ Enable / Disable settings
 - ✅ Review information given by Microsoft about the setting
-- ✅ Review information given by Microsoft about the setting
+- ✅ Review information given by LinkeD365 about the setting
+
+Tool is based of Sean McNellis original tool <https://github.com/seanmcne/OrgDbOrgSettings>
 
 ## Installation
 
