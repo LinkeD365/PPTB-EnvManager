@@ -1,18 +1,28 @@
 {
   "name": "@linked365/pptb-environment-manager",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "displayName": "Environment Manager",
   "description": "A Power Platform Tool Box tool to manage optional settings per environment.",
   "main": "index.html",
   "author": "LinkeD365",
-  "keywords": ["powerplatform", "dataverse", "toolbox"],
+  "keywords": [
+    "powerplatform",
+    "dataverse",
+    "toolbox"
+  ],
   "repository": {
-        "type": "git",
-        "url": "https://github.com/LinkeD365/myFirstTool"
-    },
+    "type": "git",
+    "url": "https://github.com/LinkeD365/myFirstTool"
+  },
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "cspExceptions": {
+    "connect-src": [
+      "https://raw.githubusercontent.com/seanmcne/*",
+      "https://raw.githubusercontent.com/LinkeD365/*"
+    ]
   },
   "scripts": {
     "build": "tsc && vite build",
