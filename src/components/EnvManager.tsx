@@ -51,18 +51,9 @@ function setItemEdit(item: orgProp, edit: boolean) {
 }
 
 function setItemNewValue(item: orgProp, newValue: string) {
-  console.log("Parent new value for", item.name, "to", newValue);
+//  console.log("Parent new value for", item.name, "to", newValue);
   runInAction(() => {
     item.new = newValue;
-    //item.edit = true;
-    // // Prefer updating the instance stored in the observable array so MobX reacts to the change
-    // const target = viewModel.fullList.find((i) => i.name === item.name);
-    // if (target) {
-    //   target.new = newValue;
-    // } else {
-    //   // Fallback: update the provided item
-    //   item.new = newValue;
-    // }
   });
 }
 
@@ -137,7 +128,7 @@ export const EnvManager = observer(
               setting.url = el.getAttribute("supportUrl") || "";
               setting.urlTitle = el.getAttribute("urlTitle") || "";
 
-              console.log("Parsed setting:", setting);
+              // console.log("Parsed setting:", setting);
               return setting;
             });
           const linkeD365Url =
@@ -210,9 +201,9 @@ export const EnvManager = observer(
 
           runInAction(() => {
             viewModel.fullList = observable([]);
-            console.log("blank count:", viewModel.blankList.length);
+           // console.log("blank count:", viewModel.blankList.length);
             viewModel.blankList.forEach((f) => {
-              console.log("Merging setting:", f.name);
+            //  console.log("Merging setting:", f.name);
               const match = rowMap.get(f.name?.toLowerCase() ?? "");
               if (match) {
                 // Prefer the value from rows for current if present
@@ -439,7 +430,7 @@ export const EnvManager = observer(
     return (
       <div>
         {viewModel.fullList && viewModel.fullList.length > 0 ? (
-          <div className="info-box">
+          <div>
             {/* <div>{viewModel.fullList.length} settings loaded. test</div> */}
             <DataGrid
               className={classes.root}
@@ -488,8 +479,8 @@ export const EnvManager = observer(
                     ))} */}
           </div>
         ) : (
-          <div className="info-box">
-            <p>No organization settings found.</p>
+          <div  className="info-box">
+            <p>No organization settings found. test</p>
           </div>
         )}
       </div>

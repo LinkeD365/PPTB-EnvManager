@@ -18,7 +18,8 @@ if (rootElement && !rootElement.hasAttribute("data-reactroot-initialized")) {
     console.log("Initializing React application...");
     
     const theme = await window.toolboxAPI.utils.getCurrentTheme();
-    console.log("Theme from settings:", theme);
+    document.body.setAttribute("data-theme", theme);
+    //console.log("Theme from settings:", theme);
   //  const currentTheme = await window.toolboxAPI.settings.getSettings();
     createRoot(rootElement).render(
       <StrictMode>
