@@ -7,11 +7,13 @@ import { observer } from "mobx-react";
 interface InputControlProps {
   item: orgProp;
   setItemNewValue: (item: orgProp, newValue: string) => void;
+  secondary?: boolean;
 }
 
 // Separate component for the toggle details to maintain state correctly
 export const InputControl = observer((props: InputControlProps): React.JSX.Element => {
-//  const { item, setItemNewValue } = props;
+  const { secondary } = props;
+  //  const { item, setItemNewValue } = props;
   const [item] = React.useState(props.item);
   //const [open, setOpen] = React.useState(false);
   const input = (() => {
@@ -19,14 +21,19 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
       case "Boolean":
         return (
           <div>
-            <Checkbox   
+            <Checkbox
               aria-label={`${item.name} boolean`}
-              checked={item.new === "true"}
+              checked={secondary ? item.secondaryNew === "true" : item.new === "true"}
               onClick={(e) => {
                 e.stopPropagation();
                 runInAction(() => {
-                  item.new = item.new === "true" ? "false" : "true";
-                  props.setItemNewValue(item, item.new );
+                  if (secondary) {
+                    item.secondaryNew = item.secondaryNew === "true" ? "false" : "true";
+                    props.setItemNewValue(item, item.secondaryNew ?? "");
+                  } else {
+                    item.new = item.new === "true" ? "false" : "true";
+                    props.setItemNewValue(item, item.new ?? "");
+                  }
                 });
               }}
             />
@@ -38,7 +45,7 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
             type="number"
             min={item.min ? Number(item.min) : undefined}
             max={item.max ? Number(item.max) : undefined}
-            value={item.new}
+            value={secondary ? item.secondaryNew ?? "" : item.new ?? ""}
             aria-label={`${item.name} number`}
             onChange={(e) => {
               e.stopPropagation();
@@ -54,9 +61,9 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
         );
       case "String":
         return (
-          <Input 
+          <Input
             type="text"
-            value={item.new}
+            value={item.new ?? ""}
             aria-label={`${item.name} text`}
             onChange={(e) => {
               e.stopPropagation();
