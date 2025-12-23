@@ -3,34 +3,25 @@ import { observer } from "mobx-react";
 import { ViewModel } from "../model/ViewModel";
 import { ArrowUndoRegular, EditRegular, Save20Filled } from "@fluentui/react-icons";
 import {
-  DataGrid,
-  TableColumnDefinition,
-  createTableColumn,
-  DataGridHeader,
-  DataGridBody,
-  DataGridCell,
-  DataGridHeaderCell,
-  DataGridRow,
-  TableRowId,
-  DataGridProps,
-  Button,
-  makeStyles,
-  tokens,TableColumnSizingOptions
-} from "@fluentui/react-components";
+  ModuleRegistry,
+  TextFilterModule,
+  ClientSideRowModelModule,
+  themeQuartz,
+  ColGroupDef,
+} from "ag-grid-community";
+import { AgGridReact, CustomCellRendererProps, CustomInnerHeaderProps } from "ag-grid-react";
+
+ModuleRegistry.registerModules([TextFilterModule, ClientSideRowModelModule]);
+
+import { Button } from "@fluentui/react-components";
 import { dvService } from "../utils/dataverse";
 import { orgProp } from "../model/OrgSetting";
 import { observable, runInAction } from "mobx";
 import { InputControl } from "./InputControl";
 import { InfoPopup } from "./Info";
 
-const useStyles = makeStyles({
-  root: { color: "red", backgroundColor: tokens.colorNeutralBackground1 },
-  fluentDataGridHeaderCell: {
-    borderBottom: "2px solid var(--neutral-stroke-divider-rest)",
-  },
-  "fluent-data-grid-row > fluent-data-grid-cell:not(:last-child)": {
-    borderRight: "1px solid var(--neutral-stroke-divider-rest)",
-  },
+const myTheme = themeQuartz.withParams({
+  headerHeight: "30px",
 });
 
 interface EnvManagerProps {
@@ -53,25 +44,155 @@ function setItemEdit(item: orgProp, edit: boolean) {
 export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element => {
   const { connection, secondaryConnection, isLoading, viewModel, onLog, dvService } = props;
   const [loadingSettings, setLoadingSettings] = React.useState(false);
-  const classes = useStyles();
 
-  const [selectedRows, setSelectedRows] = React.useState(new Set<TableRowId>([1]));
+  // Define helper functions before they are used in useEffect
+  function setItemNewValue(item: orgProp, newValue: string, secondary?: boolean): void {
+    runInAction(() => {
+      if (secondary) {
+        item.secondaryNew = newValue;
+      } else {
+        item.new = newValue;
+      }
+    });
+  }
+
+  const saveHeaderButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
+    return (
+      <div
+        className="customInnerHeaderGroup"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          justifyItems: "flex-end",
+        }}
+      >
+        <div style={{ marginRight: "10px", width: "100%" }}>{params.displayName}</div>
+        {viewModel.fullList.filter((op) => op.edit && op.new !== op.current).length > 0 && (
+          <Button icon={<Save20Filled />} onClick={() => saveOrgSettings()} />
+        )}
+      </div>
+    );
+  });
+
+  const saveHeaderSecondaryButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
+    return (
+      <div
+        className="customInnerHeaderGroup"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          justifyItems: "flex-end",
+        }}
+      >
+        <div style={{ marginRight: "10px", width: "100%" }}>{params.displayName}</div>
+        {viewModel.fullList.filter((op) => op.edit && op.secondaryNew !== op.secondaryCurrent).length > 0 && (
+          <Button icon={<Save20Filled />} onClick={() => saveOrgSettings(true)} />
+        )}
+      </div>
+    );
+  });
+
+  const cellIcon = observer((params: CustomCellRendererProps<orgProp>) => (
+    <div className="imgSpanLogo" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+      {params.data?.edit ? (
+        <Button
+          icon={<ArrowUndoRegular />}
+          onClick={() => params.data && setItemEdit(params.data, !params.data.edit)}
+        />
+      ) : (
+        <Button icon={<EditRegular />} onClick={() => params.data && setItemEdit(params.data, !params.data.edit)} />
+      )}
+    </div>
+  ));
+
+  const cellInfo = observer((params: CustomCellRendererProps<orgProp>) => (
+    <div className="imgCellInfo">{params.data && <InfoPopup item={params.data} />}</div>
+  ));
+
+  // Column Definitions: Defines the columns to be displayed.
+  const [colDefs, setColDefs] = React.useState<ColGroupDef<orgProp>[]>([
+    {
+      headerName: "",
+      children: [{ colId: "Edit", resizable: false, width: 50, sortable: false }, { field: "name" }],
+    },
+    {
+      headerName: connection ? connection.name : "Primary Connection",
+      children: [
+        { field: "current", headerName: connection ? `${connection.name} Current Value` : "Current Value" },
+        { field: "new", headerName: connection ? `${connection.name} New Value` : "New Value" },
+      ],
+    },
+  ]);
+
+  React.useEffect(() => {
+    const secondaryHeaders: ColGroupDef<orgProp>[] = secondaryConnection
+      ? [
+          {
+            headerName: secondaryConnection.name,
+            children: [
+              { field: "secondaryCurrent", headerName: `Current Value`, flex: 1 },
+              {
+                field: "secondaryNew",
+                flex: 1,
+                headerName: "New Value",
+                headerComponent: saveHeaderSecondaryButton,
+                cellRenderer: (params: { data: orgProp }) =>
+                  params.data ? (
+                    <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={true} />
+                  ) : null,
+              },
+            ],
+          },
+        ]
+      : [];
+
+    setColDefs([
+      {
+        headerName: "",
+        children: [
+          { colId: "Edit", resizable: false, width: 50, sortable: false, headerName: "", cellRenderer: cellIcon },
+          { colId: "Info", resizable: false, width: 50, sortable: false, headerName: "", cellRenderer: cellInfo },
+          { field: "name", headerName: "Name", filter: true, flex: 2 },
+        ],
+      },
+      {
+        headerName: connection ? connection.name : "Primary Connection",
+        children: [
+          { field: "current", headerName: "Current Value", flex: 1 },
+          {
+            field: "new",
+            flex: 1,
+            headerName: "New Value",
+            headerComponent: saveHeaderButton,
+            cellRenderer: (params: { data: orgProp }) =>
+              params.data ? (
+                <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={false} />
+              ) : null,
+          },
+        ],
+      },
+      ...secondaryHeaders,
+    ]);
+  }, [connection, secondaryConnection]);
 
   React.useEffect(() => {
     onLog("EnvManager mounted", "info");
     getMcneXML();
-  }, []);
+    document.body.dataset.agThemeMode = viewModel.theme;
+  }, [onLog, viewModel.theme]);
+
+  React.useEffect(() => {
+    document.body.dataset.agThemeMode = viewModel.theme;
+  }, [viewModel.theme]);
 
   //Get current settings
   React.useEffect(() => {
     onLog("Loading organization settings...", "info");
 
-    fetchOrgSettings();
-  }, [connection, viewModel.blankList.length]);
-
-  const onSelectionChange: DataGridProps["onSelectionChange"] = (_e, data) => {
-    setSelectedRows(data.selectedItems);
-  };
+    if (connection || secondaryConnection) fetchOrgSettings();
+  }, [connection, secondaryConnection, viewModel.blankList.length, onLog]);
 
   // Get the Sean Mcne Xml
   const getMcneXML = async () => {
@@ -146,18 +267,9 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     }
   };
 
-  function setItemNewValue(item: orgProp, newValue: string) {
-    //  console.log("Parent new value for", item.name, "to", newValue);
-    runInAction(() => {
-      if (secondaryConnection) {
-        item.secondaryNew = newValue;
-      } else {
-        item.new = newValue;
-      }
-    });
-  }
   const fetchOrgSettings = async () => {
     if (!connection) {
+      console.log("This should not happen: fetchOrgSettings called without connection");
       window.toolboxAPI.utils.showNotification({
         title: "No active connection",
         body: "Please connect to a Dataverse environment to use this tool.",
@@ -172,7 +284,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     //Fetch with primary connection
     await dvService.getOrgSettings().then(async ([orgId, settings]) => {
       console.log("Fetched org settings:", orgId, settings);
-      viewModel.orgId = orgId;
+      viewModel.primaryOrgId = orgId;
       if (
         Array.isArray(viewModel.blankList) &&
         viewModel.blankList.length > 0 &&
@@ -202,7 +314,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         console.log("Fetching org settings with secondary connection");
         await dvService.getOrgSettings(true).then(([orgId, secSettings]) => {
           console.log("Fetched org settings:", orgId, secSettings);
-          viewModel.orgId = orgId;
+          viewModel.secondaryOrgId = orgId;
 
           const secRows = new Map(secSettings.map((r) => [r.name?.toLowerCase() ?? "", r]));
 
@@ -226,15 +338,33 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     setLoadingSettings(false);
   };
 
-  function saveOrgSettings(): void {
-    const editedItems = viewModel.fullList.filter((i) => i.edit);
+  function saveOrgSettings(secondary?: boolean): void {
+    let editedItems = viewModel.fullList.filter((i) => i.edit);
     if (editedItems.length === 0) {
+      window.toolboxAPI.utils.showNotification({
+        title: "No changes to save",
+        body: "No items are in edit mode.",
+      });
+      onLog("No changes to save", "info");
+      return;
+    }
+    if (secondary) {
+      editedItems = editedItems.filter((item) => item.secondaryNew !== item.secondaryCurrent);
+    } else {
+      editedItems = editedItems.filter((item) => item.new !== item.current);
+    }
+    if (editedItems.length === 0) {
+      window.toolboxAPI.utils.showNotification({
+        title: "No changes to save",
+        body: "No values have been modified.",
+      });
       onLog("No changes to save", "info");
       return;
     }
 
+    const conn = secondary ? secondaryConnection : connection;
     (async () => {
-      if (!connection || !connection.isActive) {
+      if (!conn) {
         await window.toolboxAPI.utils.showNotification({
           title: "No active connection",
           body: "Cannot save settings without an active connection.",
@@ -245,200 +375,51 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         return;
       }
 
+      window.toolboxAPI.utils.showLoading("Saving organization settings...");
       onLog(`Saving ${editedItems.length} organization setting(s)...`, "info");
       try {
         let updateString = "<orgSettings>";
-        viewModel.fullList
-          .filter((it) => it.current || it.new)
-          .forEach((it) => {
-            updateString += `<${it.name}>${it.new ?? it.current}</${it.name}>`;
-          });
-        updateString += "</orgSettings>";
-
-        await dvService.updateOrgSettingsXml(updateString, viewModel.orgId).then(async (result) => {
-          if (!result.success) {
-            throw new Error(result.error);
-          }
-          await window.toolboxAPI.utils.showNotification({
-            title: "Organization Settings Saved",
-            body: "The organization settings have been successfully saved.",
-          });
+        const settingsList = secondary
+          ? viewModel.fullList.filter((it) => it.secondaryCurrent || it.secondaryNew)
+          : viewModel.fullList.filter((it) => it.current || it.new);
+        settingsList.forEach((it) => {
+          updateString += secondary
+            ? `<${it.name}>${it.secondaryNew ?? it.secondaryCurrent}</${it.name}>`
+            : `<${it.name}>${it.new ?? it.current}</${it.name}>`;
         });
+        updateString += "</orgSettings>";
+        console.log("Update string:", updateString);
+        await dvService
+          .updateOrgSettingsXml(
+            updateString,
+            secondary ? viewModel.secondaryOrgId ?? "" : viewModel.primaryOrgId ?? "",
+            !!secondary
+          )
+          .then(async (result) => {
+            if (!result.success) {
+              throw new Error(result.error);
+            }
+            await window.toolboxAPI.utils.showNotification({
+              title: "Organization Settings Saved",
+              body: "The organization settings have been successfully saved.",
+            });
+          });
 
         onLog("Organization settings saved", "success");
         fetchOrgSettings();
       } catch (err) {
+        await window.toolboxAPI.utils.showNotification({
+          title: "Failed to save organization settings",
+          body: `Error: ${String(err)}`,
+          type: "error",
+          duration: 3000,
+        });
         onLog(`Failed to save org settings: ${String(err)}`, "error");
+      } finally {
+        window.toolboxAPI.utils.hideLoading();
       }
     })();
   }
-
-  //Columns for the grid displaying org settings
-  const columns: TableColumnDefinition<orgProp>[] = [
-    createTableColumn<orgProp>({
-      columnId: "Edit",
-      renderHeaderCell: () => {
-        return viewModel.fullList.some((i) => i.edit) ? (
-          <div>
-            <Button icon={<Save20Filled />} onClick={() => saveOrgSettings()} />
-          </div>
-        ) : (
-          ""
-        );
-      },
-      renderCell: (item) => {
-        return (
-          <div
-            style={{
-              width: "100%",
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-            }}
-          >
-            {item.edit ? (
-              <Button icon={<ArrowUndoRegular />} onClick={() => setItemEdit(item, !item.edit)}></Button>
-            ) : (
-              <Button icon={<EditRegular />} onClick={() => setItemEdit(item, !item.edit)}></Button>
-            )}
-          </div>
-        );
-      },
-    }),
-    createTableColumn<orgProp>({
-      columnId: "Info",
-      renderHeaderCell: () => {
-        return <div></div>;
-      },
-      renderCell: (item) => {
-        return <InfoPopup item={item}></InfoPopup>;
-      },
-    }),
-    createTableColumn<orgProp>({
-      columnId: "name",
-
-      compare: (a, b) => {
-        return a.name.localeCompare(b.name);
-      },
-      renderHeaderCell: () => {
-        return "Setting Name";
-      },
-      renderCell: (item) => {
-        return (
-          <div style={{ verticalAlign: "top", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {item.name}
-            {/* <InfoPopup item={item}></InfoPopup> */}
-          </div>
-        );
-      },
-    }),
-    createTableColumn<orgProp>({
-      columnId: "current",
-      compare: (a, b) => {
-        return a.current.localeCompare(b.current);
-      },
-      renderHeaderCell: () => {
-        return connection?.name + " Current Value";
-      },
-      renderCell: (item) => {
-        return <div>{item.current}</div>;
-      },
-    }),
-
-    createTableColumn<orgProp>({
-      columnId: "newValue",
-      renderHeaderCell: () => {
-        return connection?.name + " New Value";
-      },
-      renderCell: (item) => {
-        return (
-          <div>
-            <InputControl
-              key={item.name}
-              // key={item.name}
-              item={item}
-              setItemNewValue={setItemNewValue}
-            />
-          </div>
-        );
-      },
-    }),
-    ...(secondaryConnection
-      ? [
-          createTableColumn<orgProp>({
-            columnId: "secondaryCurrent",
-            compare: (a, b) => {
-              return (a.secondaryCurrent ?? "").localeCompare(b.secondaryCurrent ?? "");
-            },
-            renderHeaderCell: () => {
-              return <div>{secondaryConnection?.name} Current Value</div>;
-            },
-            renderCell: (item) => {
-              return <div style={{ width: "100%" }}>{item.secondaryCurrent}</div>;
-            },
-          }),
-          createTableColumn<orgProp>({
-            columnId: "secondaryNewValue",
-            renderHeaderCell: () => {
-              return secondaryConnection?.name + " New Value";
-            },
-            renderCell: (item) => {
-              return (
-                <div>
-                  <InputControl
-                    key={item.name + "secondary"}
-                    // key={item.name}
-                    item={item}
-                    secondary={true}
-                    setItemNewValue={setItemNewValue}
-                  />
-                </div>
-              );
-            },
-          }),
-        ]
-      : []),
-  ];
-
-  const columnSizingOptions = {
-    name: {
-      minWidth: 80,
-      maxWidth: 300,
-      defaultWidth: 200,
-    },
-    current: {
-      defaultWidth: 60,
-      minWidth: 30,
-      idealWidth: 60,
-    },
-    newValue: {
-      defaultWidth: 60,
-      minWidth: 30,
-      idealWidth: 60,
-    },
-    secondaryCurrent: {
-      defaultWidth: 60,
-      minWidth: 30,
-      idealWidth: 60,
-    },
-    secondaryNewValue: {
-      defaultWidth: 60,
-      minWidth: 30,
-      idealWidth: 60,
-    },
-    Edit: {
-      //defaultWidth: 45,
-      //   minWidth: 45,
-      maxWidth: 45,
-      idealWidth: 45,
-    },
-    Info: {
-      //defaultWidth: 45,
-      //   minWidth: 45,
-      maxWidth: 45,
-      idealWidth: 45,
-    },
-  };
 
   if (isLoading || loadingSettings) {
     return (
@@ -467,67 +448,8 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
   }
 
   return (
-    <div>
-      {viewModel.fullList.filter((i) => i.edit).length}
-      {viewModel.fullList && viewModel.fullList.length > 0 ? (
-        <div>
-          {/* <div>{viewModel.fullList.length} settings loaded. test</div> */}
-          <DataGrid
-            className={classes.root}
-            items={viewModel.fullList}
-            columns={columns}
-            aria-label="Organization Settings"
-            sortable
-            size="small"
-            selectedItems={selectedRows}
-            onSelectionChange={onSelectionChange}
-            resizableColumns
-            columnSizingOptions={columnSizingOptions}
-            onColumnResize={(e, data) => {
-              if (data.columnId == "Edit" || data.columnId == "Info") {
-                console.log("Preventing resize for", data.columnId);
-                // Handle resize only for non-Edit and non-Info columns
-                e?.preventDefault();
-                e?.stopPropagation();
-                return;
-              }
-            }}
-            // resizableColumnsOptions={{
-            //   autoFitColumns: false,
-            // }}
-          >
-            <DataGridHeader
-              style={{
-                position: "sticky",
-                top: 0,
-                zIndex: 10,
-                backgroundColor: tokens.colorNeutralBackground2,
-                boxShadow: "0 1px 0 rgba(0,0,0,0.06)",
-              }}
-            >
-              <DataGridRow>
-                {({ renderHeaderCell }) => <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>}
-              </DataGridRow>
-            </DataGridHeader>
-            <DataGridBody<orgProp>>
-              {({ item, rowId }) => (
-                <DataGridRow<orgProp> key={rowId}>
-                  {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
-                </DataGridRow>
-              )}
-            </DataGridBody>
-          </DataGrid>
-          {/* {viewModel.rows.map((row, index) => (
-                        <div key={index}>
-                            <strong>{row.name}:</strong> {row.current}
-                        </div>
-                    ))} */}
-        </div>
-      ) : (
-        <div className="info-box">
-          <p>No organization settings found. test</p>
-        </div>
-      )}
+    <div style={{ width: "95vw", height: "98vh" }}>
+      <AgGridReact<orgProp> theme={myTheme} rowData={viewModel.fullList} columnDefs={colDefs} domLayout="normal" />
     </div>
   );
 });

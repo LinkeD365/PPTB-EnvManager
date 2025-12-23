@@ -52,7 +52,8 @@ export class dvService {
   }
   async updateOrgSettingsXml(
     updateString: string,
-    orgId: string
+    orgId: string,
+    secondary: boolean
   ): Promise<{ success: true } | { success: false; error: string }> {
     this.onLog("Updating organization settings...", "info");
 
@@ -65,9 +66,14 @@ export class dvService {
     }
 
     try {
-      await this.dvApi.update("organization", orgId, {
-        orgdborgsettings: updateString,
-      });
+      await this.dvApi.update(
+        "organization",
+        orgId,
+        {
+          orgdborgsettings: updateString,
+        },
+        secondary ? "secondary" : "primary"
+      );
 
       this.onLog("Organization settings updated", "success");
       return { success: true };

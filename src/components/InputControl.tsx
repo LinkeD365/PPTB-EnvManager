@@ -6,13 +6,13 @@ import { observer } from "mobx-react";
 
 interface InputControlProps {
   item: orgProp;
-  setItemNewValue: (item: orgProp, newValue: string) => void;
+  setItemNewValue: (item: orgProp, newValue: string, secondary?: boolean) => void;
   secondary?: boolean;
 }
 
 // Separate component for the toggle details to maintain state correctly
 export const InputControl = observer((props: InputControlProps): React.JSX.Element => {
-  const { secondary } = props;
+  const { secondary = false } = props;
   //  const { item, setItemNewValue } = props;
   const [item] = React.useState(props.item);
   //const [open, setOpen] = React.useState(false);
@@ -29,10 +29,10 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
                 runInAction(() => {
                   if (secondary) {
                     item.secondaryNew = item.secondaryNew === "true" ? "false" : "true";
-                    props.setItemNewValue(item, item.secondaryNew ?? "");
+                    props.setItemNewValue(item, item.secondaryNew ?? "", true);
                   } else {
                     item.new = item.new === "true" ? "false" : "true";
-                    props.setItemNewValue(item, item.new ?? "");
+                    props.setItemNewValue(item, item.new ?? "", false);
                   }
                 });
               }}
@@ -42,6 +42,7 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
       case "Number":
         return (
           <Input
+            style={{ marginTop: "4px" }}
             type="number"
             min={item.min ? Number(item.min) : undefined}
             max={item.max ? Number(item.max) : undefined}
@@ -55,7 +56,7 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
               if (item.min && Number(e.target.value) < Number(item.min)) {
                 e.target.value = item.min;
               }
-              props.setItemNewValue(item, e.target.value);
+              props.setItemNewValue(item, e.target.value, secondary);
             }}
           />
         );
@@ -67,7 +68,7 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
             aria-label={`${item.name} text`}
             onChange={(e) => {
               e.stopPropagation();
-              props.setItemNewValue(item, e.target.value);
+              props.setItemNewValue(item, e.target.value, secondary);
             }}
           />
         );
@@ -80,11 +81,9 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
     <div style={{ display: "flex", flexDirection: "column" }}>
       <div
         style={{
-          border: "1px solid #ccc",
           display: "flex",
           alignItems: "center",
-          justifyContent: "flex-end",
-          gap: 8,
+          justifyContent: "center",
           width: "100%",
         }}
       >
