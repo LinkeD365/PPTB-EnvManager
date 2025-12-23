@@ -45,6 +45,72 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
   const { connection, secondaryConnection, isLoading, viewModel, onLog, dvService } = props;
   const [loadingSettings, setLoadingSettings] = React.useState(false);
 
+  // Define helper functions before they are used in useEffect
+  function setItemNewValue(item: orgProp, newValue: string, secondary?: boolean): void {
+    runInAction(() => {
+      if (secondary) {
+        item.secondaryNew = newValue;
+      } else {
+        item.new = newValue;
+      }
+    });
+  }
+
+  const saveHeaderButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
+    return (
+      <div
+        className="customInnerHeaderGroup"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          justifyItems: "flex-end",
+        }}
+      >
+        <div style={{ marginRight: "10px", width: "100%" }}>{params.displayName}</div>
+        {viewModel.fullList.filter((op) => op.edit && op.new !== op.current).length > 0 && (
+          <Button icon={<Save20Filled />} onClick={() => saveOrgSettings()} />
+        )}
+      </div>
+    );
+  });
+
+  const saveHeaderSecondaryButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
+    return (
+      <div
+        className="customInnerHeaderGroup"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          justifyItems: "flex-end",
+        }}
+      >
+        <div style={{ marginRight: "10px", width: "100%" }}>{params.displayName}</div>
+        {viewModel.fullList.filter((op) => op.edit && op.secondaryNew !== op.secondaryCurrent).length > 0 && (
+          <Button icon={<Save20Filled />} onClick={() => saveOrgSettings(true)} />
+        )}
+      </div>
+    );
+  });
+
+  const cellIcon = observer((params: CustomCellRendererProps<orgProp>) => (
+    <div className="imgSpanLogo" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+      {params.data?.edit ? (
+        <Button
+          icon={<ArrowUndoRegular />}
+          onClick={() => params.data && setItemEdit(params.data, !params.data.edit)}
+        />
+      ) : (
+        <Button icon={<EditRegular />} onClick={() => params.data && setItemEdit(params.data, !params.data.edit)} />
+      )}
+    </div>
+  ));
+
+  const cellInfo = observer((params: CustomCellRendererProps<orgProp>) => (
+    <div className="imgCellInfo">{params.data && <InfoPopup item={params.data} />}</div>
+  ));
+
   // Column Definitions: Defines the columns to be displayed.
   const [colDefs, setColDefs] = React.useState<ColGroupDef<orgProp>[]>([
     {
@@ -68,13 +134,14 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
             children: [
               { field: "secondaryCurrent", headerName: `Current Value`, flex: 1 },
               {
-                field: "new",
+                field: "secondaryNew",
                 flex: 1,
                 headerName: "New Value",
                 headerComponent: saveHeaderSecondaryButton,
-                cellRenderer: (params: { data: orgProp }) => (
-                  <InputControl item={params.data!} setItemNewValue={setItemNewValue} secondary={true} />
-                ),
+                cellRenderer: (params: { data: orgProp }) =>
+                  params.data ? (
+                    <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={true} />
+                  ) : null,
               },
             ],
           },
@@ -99,9 +166,10 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
             flex: 1,
             headerName: "New Value",
             headerComponent: saveHeaderButton,
-            cellRenderer: (params: { data: orgProp }) => (
-              <InputControl item={params.data!} setItemNewValue={setItemNewValue} secondary={false} />
-            ),
+            cellRenderer: (params: { data: orgProp }) =>
+              params.data ? (
+                <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={false} />
+              ) : null,
           },
         ],
       },
@@ -113,7 +181,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     onLog("EnvManager mounted", "info");
     getMcneXML();
     document.body.dataset.agThemeMode = viewModel.theme;
-  }, []);
+  }, [onLog, viewModel.theme]);
 
   React.useEffect(() => {
     document.body.dataset.agThemeMode = viewModel.theme;
@@ -124,7 +192,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     onLog("Loading organization settings...", "info");
 
     if (connection || secondaryConnection) fetchOrgSettings();
-  }, [connection, secondaryConnection, viewModel.blankList.length]);
+  }, [connection, secondaryConnection, viewModel.blankList.length, onLog]);
 
   // Get the Sean Mcne Xml
   const getMcneXML = async () => {
@@ -199,22 +267,11 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     }
   };
 
-  function setItemNewValue(item: orgProp, newValue: string, secondary?: boolean): void {
-    //  console.log("Parent new value for", item.name, "to", newValue);
-    runInAction(() => {
-      if (secondary) {
-        item.secondaryNew = newValue;
-      } else {
-        item.new = newValue;
-      }
-    });
-  }
   const fetchOrgSettings = async () => {
     if (!connection) {
-      console.log;
-      ("This should not happen: fetchOrgSettings called without connection");
+      console.log("This should not happen: fetchOrgSettings called without connection");
       window.toolboxAPI.utils.showNotification({
-        title: "No active connection 22",
+        title: "No active connection",
         body: "Please connect to a Dataverse environment to use this tool.",
         type: "error",
         duration: 3000,
@@ -286,7 +343,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     if (editedItems.length === 0) {
       window.toolboxAPI.utils.showNotification({
         title: "No changes to save",
-        body: "There are no changes to save.",
+        body: "No items are in edit mode.",
       });
       onLog("No changes to save", "info");
       return;
@@ -297,11 +354,11 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
       editedItems = editedItems.filter((item) => item.new !== item.current);
     }
     if (editedItems.length === 0) {
-      onLog("No changes to save", "info");
       window.toolboxAPI.utils.showNotification({
-        title: "No changes made",
-        body: "There are no changes to save.",
+        title: "No changes to save",
+        body: "No values have been modified.",
       });
+      onLog("No changes to save", "info");
       return;
     }
 
@@ -336,7 +393,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
           .updateOrgSettingsXml(
             updateString,
             secondary ? viewModel.secondaryOrgId ?? "" : viewModel.primaryOrgId ?? "",
-            secondary ?? false
+            !!secondary
           )
           .then(async (result) => {
             if (!result.success) {
@@ -363,56 +420,6 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
       }
     })();
   }
-
-  const saveHeaderButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
-    return (
-      <div
-        className="customInnerHeaderGroup"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          justifyItems: "flex-end",
-        }}
-      >
-        <div style={{ marginRight: "10px", width: "100%" }}>{params.displayName}</div>
-        {viewModel.fullList.filter((op) => op.edit && op.new !== op.current).length > 0 && (
-          <Button icon={<Save20Filled />} onClick={() => saveOrgSettings()} />
-        )}
-      </div>
-    );
-  });
-  const saveHeaderSecondaryButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
-    return (
-      <div
-        className="customInnerHeaderGroup"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          justifyItems: "flex-end",
-        }}
-      >
-        <div style={{ marginRight: "10px", width: "100%" }}>{params.displayName}</div>
-        {viewModel.fullList.filter((op) => op.edit && op.secondaryNew !== op.secondaryCurrent).length > 0 && (
-          <Button icon={<Save20Filled />} onClick={() => saveOrgSettings(true)} />
-        )}
-      </div>
-    );
-  });
-
-  const cellIcon = observer((params: CustomCellRendererProps<orgProp>) => (
-    <div className="imgSpanLogo" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-      {params.data?.edit ? (
-        <Button
-          icon={<ArrowUndoRegular />}
-          onClick={() => params.data && setItemEdit(params.data, !params.data.edit)}
-        />
-      ) : (
-        <Button icon={<EditRegular />} onClick={() => params.data && setItemEdit(params.data, !params.data.edit)} />
-      )}
-    </div>
-  ));
 
   if (isLoading || loadingSettings) {
     return (
@@ -446,7 +453,3 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     </div>
   );
 });
-
-const cellInfo = observer((params: CustomCellRendererProps<orgProp>) => (
-  <div className="imgCellInfo">{params.data && <InfoPopup item={params.data} />}</div>
-));

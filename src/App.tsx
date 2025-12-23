@@ -9,6 +9,16 @@ function App() {
   const { connection, secondaryConnection, isLoading, refreshConnection } = useConnection();
   const { addLog } = useEventLog();
   const [theme, setTheme] = useState<string>("light");
+  const [viewModel] = useState(() => new ViewModel());
+
+  const getTheme = useCallback(async () => {
+    console.log("Fetching current theme from toolbox API");
+    const currentTheme = await window.toolboxAPI.utils.getCurrentTheme();
+    setTheme(currentTheme);
+    console.log("Current theme set to:", currentTheme);
+    viewModel.theme = currentTheme;
+    document.body.setAttribute("data-theme", currentTheme);
+  }, [viewModel]);
 
   // Handle platform events
   const handleEvent = useCallback(
@@ -36,18 +46,8 @@ function App() {
           break;
       }
     },
-    [refreshConnection]
+    [refreshConnection, getTheme]
   );
-  const [viewModel] = useState(() => new ViewModel());
-
-  const getTheme = useCallback(async () => {
-    console.log("Fetching current theme from toolbox API");
-    const currentTheme = await window.toolboxAPI.utils.getCurrentTheme();
-    setTheme(currentTheme);
-    console.log("Current theme set to:", currentTheme);
-    viewModel.theme = currentTheme;
-    document.body.setAttribute("data-theme", currentTheme);
-  }, [viewModel]);
 
   useEffect(() => {
     getTheme();

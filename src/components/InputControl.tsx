@@ -84,7 +84,6 @@ export const InputControl = observer((props: InputControlProps): React.JSX.Eleme
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-
           width: "100%",
         }}
       >
