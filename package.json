@@ -1,6 +1,6 @@
 {
   "name": "@linked365/pptb-environment-manager",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "displayName": "Environment Manager",
   "description": "A Power Platform Tool Box tool to manage optional settings per environment.",
   "main": "index.html",
