@@ -414,9 +414,6 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
               title: "Organization Settings Saved",
               body: "The organization settings have been successfully saved.",
             });
-          })
-          .catch((err) => {
-            throw err;
           });
 
         onLog("Organization settings saved", "success");
