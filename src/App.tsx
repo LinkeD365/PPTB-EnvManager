@@ -23,6 +23,7 @@ function App() {
   // Handle platform events
   const handleEvent = useCallback(
     (event: string, _data: any) => {
+      console.log("Event received in App component:", event);
       switch (event) {
         case "connection:updated":
         case "connection:created":

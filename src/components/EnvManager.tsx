@@ -282,59 +282,70 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     setLoadingSettings(true);
 
     //Fetch with primary connection
-    await dvService.getOrgSettings().then(async ([orgId, settings]) => {
-      console.log("Fetched org settings:", orgId, settings);
-      viewModel.primaryOrgId = orgId;
-      if (
-        Array.isArray(viewModel.blankList) &&
-        viewModel.blankList.length > 0 &&
-        Array.isArray(settings) &&
-        settings.length > 0
-      ) {
-        const rowMap = new Map(settings.map((r) => [r.name?.toLowerCase() ?? "", r]));
-
-        runInAction(() => {
-          viewModel.fullList = observable([]);
-          // console.log("blank count:", viewModel.blankList.length);
-          viewModel.blankList.forEach((f) => {
-            //  console.log("Merging setting:", f.name);
-            const match = rowMap.get(f.name?.toLowerCase() ?? "");
-            if (match) {
-              // Prefer the value from rows for current if present
-              if (match.current && match.current !== "") {
-                f.current = match.current;
-              }
-            }
-            viewModel.fullList.push(f);
-          });
-        });
-      }
-
-      if (secondaryConnection) {
-        console.log("Fetching org settings with secondary connection");
-        await dvService.getOrgSettings(true).then(([orgId, secSettings]) => {
-          console.log("Fetched org settings:", orgId, secSettings);
-          viewModel.secondaryOrgId = orgId;
-
-          const secRows = new Map(secSettings.map((r) => [r.name?.toLowerCase() ?? "", r]));
+    await dvService
+      .getOrgSettings()
+      .then(async ([orgId, settings]) => {
+        console.log("Fetched org settings:", orgId, settings);
+        viewModel.primaryOrgId = orgId;
+        if (
+          Array.isArray(viewModel.blankList) &&
+          viewModel.blankList.length > 0 &&
+          Array.isArray(settings) &&
+          settings.length > 0
+        ) {
+          const rowMap = new Map(settings.map((r) => [r.name?.toLowerCase() ?? "", r]));
 
           runInAction(() => {
+            viewModel.fullList = observable([]);
             // console.log("blank count:", viewModel.blankList.length);
-            viewModel.fullList.forEach((setting) => {
+            viewModel.blankList.forEach((f) => {
               //  console.log("Merging setting:", f.name);
-              const match = secRows.get(setting.name?.toLowerCase() ?? "");
+              const match = rowMap.get(f.name?.toLowerCase() ?? "");
               if (match) {
                 // Prefer the value from rows for current if present
                 if (match.current && match.current !== "") {
-                  setting.secondaryCurrent = match.current;
+                  f.current = match.current;
                 }
               }
-              //viewModel.fullList.push(f);
+              viewModel.fullList.push(f);
             });
           });
+        }
+
+        if (secondaryConnection) {
+          console.log("Fetching org settings with secondary connection");
+          await dvService.getOrgSettings(true).then(([orgId, secSettings]) => {
+            console.log("Fetched org settings:", orgId, secSettings);
+            viewModel.secondaryOrgId = orgId;
+
+            const secRows = new Map(secSettings.map((r) => [r.name?.toLowerCase() ?? "", r]));
+
+            runInAction(() => {
+              // console.log("blank count:", viewModel.blankList.length);
+              viewModel.fullList.forEach((setting) => {
+                //  console.log("Merging setting:", f.name);
+                const match = secRows.get(setting.name?.toLowerCase() ?? "");
+                if (match) {
+                  // Prefer the value from rows for current if present
+                  if (match.current && match.current !== "") {
+                    setting.secondaryCurrent = match.current;
+                  }
+                }
+                //viewModel.fullList.push(f);
+              });
+            });
+          });
+        }
+      })
+      .catch((err) => {
+        onLog(`Failed to fetch organization settings: ${String(err)}`, "error");
+        window.toolboxAPI.utils.showNotification({
+          title: "Error fetching organization settings",
+          body: `Error: ${String(err)}`,
+          type: "error",
+          duration: 3000,
         });
-      }
-    });
+      });
     setLoadingSettings(false);
   };
 
