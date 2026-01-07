@@ -1,7 +1,6 @@
 name: Build & Publish to npm
 
 on:
-  workflow_dispatch:
   push:
     branches: ["master"]
     paths-ignore:
