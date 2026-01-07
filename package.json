@@ -12,6 +12,9 @@
     "dataverse",
     "toolbox"
   ],
+  "features": {
+    "multi-connection": true
+  },
   "configurations": {
     "repository": "https://github.com/LinkeD365/PPTB-EnvManager",
     "website": "https://linked365.blog",
@@ -35,23 +38,26 @@
     "build": "tsc && vite build",
     "dev": "vite",
     "preview": "vite preview",
+    "watch": "vite build --watch",
     "finalize-package": "npm shrinkwrap"
   },
   "dependencies": {
-    "@fluentui/react-components": "^9.72.4",
-    "@fluentui/react-icons": "^2.0.313",
+    "@fluentui/react-components": "^9.72.9",
+    "@fluentui/react-icons": "^2.0.316",
+    "ag-grid-community": "^35.0.0",
+    "ag-grid-react": "^35.0.0",
     "mobx": "^6.15.0",
     "mobx-react": "^9.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@pptb/types": "^1.0.8",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "typescript": "^5.6.3",
-    "vite": "^7.1.11"
+    "@pptb/types": "^1.0.11",
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0"
   },
   "files": [
     "dist"
