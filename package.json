@@ -5,7 +5,8 @@
   "description": "A Power Platform Tool Box tool to manage optional settings per environment.",
   "main": "index.html",
   "contributors": [
-    "LinkeD365"
+    { "name": "LinkeD365", "url": "https://linked365.blog" },
+    { "name": "MscrmTools" }
   ],
   "keywords": [
     "powerplatform",
@@ -18,11 +19,14 @@
   "configurations": {
     "repository": "https://github.com/LinkeD365/PPTB-EnvManager",
     "website": "https://linked365.blog",
-    "readmeUrl": "https://github.com/LinkeD365/PPTB-EnvManager/blob/main/README.md"
+    "readmeUrl": "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/refs/heads/main/README.md"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/LinkeD365/PPTB-EnvManager"
+  },
+  "bugs": {
+    "url": "https://github.com/LinkeD365/PPTB-EnvManager/issues"
   },
   "license": "MIT",
   "engines": {
