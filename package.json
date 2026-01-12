@@ -5,7 +5,8 @@
   "description": "A Power Platform Tool Box tool to manage optional settings per environment.",
   "main": "index.html",
   "contributors": [
-    "LinkeD365", "MscrmTools"
+    { "name": "LinkeD365", "url": "https://linked365.blog" },
+    { "name": "MscrmTools" }
   ],
   "keywords": [
     "powerplatform",
