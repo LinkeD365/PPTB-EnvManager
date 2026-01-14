@@ -19,7 +19,7 @@
     "toolbox"
   ],
   "features": {
-    "multi-connection": true
+    "multiConnection": "optional"
   },
   "configurations": {
     "repository": "https://github.com/LinkeD365/PPTB-EnvManager",
