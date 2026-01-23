@@ -1,12 +1,12 @@
 {
   "name": "@linked365/pptb-environment-manager",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "lockfileVersion": 3,
   "requires": true,
   "packages": {
     "": {
       "name": "@linked365/pptb-environment-manager",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "license": "MIT",
       "dependencies": {
         "@fluentui/react-components": "^9.72.9",
