@@ -4,6 +4,7 @@ import { Button, Badge, Input, Switch } from "@fluentui/react-components";
 import { AgGridReact } from "ag-grid-react";
 import { CustomCellRendererProps, CustomInnerHeaderProps } from "ag-grid-react";
 import { ColDef, ColGroupDef, Theme } from "ag-grid-community";
+import { EnvironmentInfoPopup } from "./EnvironmentInfo";
 
 export type EnvSettingValue = string | number | boolean | null;
 
@@ -13,6 +14,8 @@ export interface EnvApiGridRow {
   new: EnvSettingValue;
   secondaryCurrent?: EnvSettingValue;
   secondaryNew?: EnvSettingValue;
+  shortDescription?: string;
+  link?: string;
   edit: boolean;
   valueType: "boolean" | "text" | "number";
   editable?: boolean;
@@ -295,6 +298,18 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
           ) : (
             <Button icon={<EditRegular />} onClick={() => onToggleEdit(row.property, true)} />
           );
+        },
+      },
+      {
+        colId: "Info",
+        headerName: "",
+        width: 64,
+        minWidth: 64,
+        maxWidth: 64,
+        sortable: false,
+        resizable: false,
+        cellRenderer: (params: CustomCellRendererProps<EnvApiGridRow>) => {
+          return params.data?.shortDescription ? <EnvironmentInfoPopup item={params.data} /> : null;
         },
       },
       {
