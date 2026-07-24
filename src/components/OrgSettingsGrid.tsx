@@ -60,6 +60,7 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
             appearance="subtle"
             aria-label="The Power Platform API is not available on this connection."
             icon={<Warning24Regular />}
+            disabled
           />
         </Tooltip>
       </div>
@@ -78,7 +79,7 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
         }}
       >
         <div className="org-grid-header-label" title={params.displayName}>{params.displayName}</div>
-        {rowData.filter((op) => op.edit && op.new !== op.current).length > 0 && (
+        {rowData.some((op) => op.edit && op.new !== op.current) && (
           <Button icon={<Save20Filled />} onClick={onSavePrimary} />
         )}
       </div>
@@ -97,7 +98,7 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
         }}
       >
         <div className="org-grid-header-label" title={params.displayName}>{params.displayName}</div>
-        {rowData.filter((op) => op.edit && op.secondaryNew !== op.secondaryCurrent).length > 0 && (
+        {rowData.some((op) => op.edit && op.secondaryNew !== op.secondaryCurrent) && (
           <Button icon={<Save20Filled />} onClick={onSaveSecondary} />
         )}
       </div>

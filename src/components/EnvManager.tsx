@@ -256,6 +256,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
           ...row,
           edit,
           new: edit ? row.new : row.current,
+          secondaryNew: edit ? row.secondaryNew : row.secondaryCurrent,
         };
       })
     );
@@ -651,7 +652,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     );
   }
 
-  const showTabs = envApiLoaded;
+  const showTabs = envApiLoaded || Boolean(envApiError);
 
   return (
     <div style={{ width: "95vw", height: "98vh", display: "flex", flexDirection: "column" }}>
