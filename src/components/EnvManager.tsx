@@ -204,8 +204,9 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         if (!response.ok) {
           throw new Error(`Network response was not ok (${response.status})`);
         }
-
+        
         const payload = (await response.json()) as EnvApiInfoItem[];
+        console.log("[EnvManager] Loaded environment API info", payload);
         if (cancelled) {
           return;
         }
@@ -277,6 +278,10 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         } else {
           setSecondaryEnvApiEnvironmentId("");
           setEnvApiSecondaryLoaded(false);
+        }
+
+        if (envApiInfoLookup.size > 0) {
+          gridRows = attachEnvApiInfo(gridRows, envApiInfoLookup);
         }
 
         setEnvApiRows(gridRows);
