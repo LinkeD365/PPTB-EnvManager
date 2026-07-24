@@ -8,7 +8,7 @@ export async function getEnvironmentManagementSettings(
   environmentId: string,
   options?: EnvironmentApiOptions
 ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
-  const endpoint = `environments/${environmentId}/settings?api-version=${API_VERSION}`;
+  const endpoint = `environments/${environmentId}/settings?$select=*&api-version=${API_VERSION}`;
   return window.powerplatformAPI.EnvironmentManagement.Get(endpoint, options?.connectionTarget);
 }
 
