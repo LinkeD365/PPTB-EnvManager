@@ -18,7 +18,7 @@ interface EnvironmentInfoPopupProps {
 export const EnvironmentInfoPopup = ({ item }: EnvironmentInfoPopupProps): React.JSX.Element => (
   <TeachingPopover>
     <TeachingPopoverTrigger>
-      <Button appearance="transparent" icon={<Info16Regular />} />
+      <Button appearance="transparent" icon={<Info16Regular />} aria-label={`Info for ${item.property}`} />
     </TeachingPopoverTrigger>
     <TeachingPopoverSurface>
       <TeachingPopoverHeader>{item.property}</TeachingPopoverHeader>
@@ -31,7 +31,14 @@ export const EnvironmentInfoPopup = ({ item }: EnvironmentInfoPopupProps): React
             href={item.link}
             onClick={(event) => {
               event.preventDefault();
-              void window.toolboxAPI.utils.openInConnectionBrowser(item.link!);
+              try {
+                const url = new URL(item.link!);
+                if (url.protocol === "https:" || url.protocol === "http:") {
+                  void window.toolboxAPI.utils.openInConnectionBrowser(item.link!);
+                }
+              } catch {
+                // invalid URL — do nothing
+              }
             }}
           >
             Learn more

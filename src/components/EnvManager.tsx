@@ -21,7 +21,7 @@ interface EnvApiInfoItem {
   link?: string;
 }
 
-const ENV_API_INFO_URL = "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/refs/heads/main/PPApiInfo.json";
+const ENV_API_INFO_URL = "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/main/PPApiInfo.json";
 
 ModuleRegistry.registerModules([TextFilterModule, ClientSideRowModelModule]);
 
@@ -138,8 +138,6 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         property,
         current: formatGridValue(value),
         new: formatGridValue(value),
-        shortDescription: envApiInfoLookup.get(property.toLowerCase())?.shortDescription,
-        link: envApiInfoLookup.get(property.toLowerCase())?.link,
         edit: false,
         valueType: inferEnvironmentValueType(property, value),
         editable: !(property === "Id" || property === "TenantId"),
@@ -306,7 +304,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     return () => {
       cancelled = true;
     };
-  }, [connection, connectionKey, secondaryConnection, dvService, onLog, envApiInfoLookup]);
+  }, [connection, connectionKey, secondaryConnection, dvService, onLog]);
 
   const handleEnvironmentToggleEdit = React.useCallback((property: string, edit: boolean) => {
     setEnvApiRows((prev) =>
