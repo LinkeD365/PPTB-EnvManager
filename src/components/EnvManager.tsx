@@ -1,24 +1,22 @@
 import React from "react";
 import { observer } from "mobx-react";
 import { ViewModel } from "../model/ViewModel";
-import { ArrowUndoRegular, EditRegular, Save20Filled } from "@fluentui/react-icons";
 import {
   ModuleRegistry,
   TextFilterModule,
   ClientSideRowModelModule,
   themeQuartz,
-  ColGroupDef,
 } from "ag-grid-community";
-import { AgGridReact, CustomCellRendererProps, CustomInnerHeaderProps } from "ag-grid-react";
-
-ModuleRegistry.registerModules([TextFilterModule, ClientSideRowModelModule]);
-
-import { Button } from "@fluentui/react-components";
+import { Tab, TabList, SelectTabData, SelectTabEvent } from "@fluentui/react-components";
 import { dvService } from "../utils/dataverse";
 import { orgProp } from "../model/OrgSetting";
 import { observable, runInAction } from "mobx";
-import { InputControl } from "./InputControl";
-import { InfoPopup } from "./Info";
+import { OrgSettingsGrid } from "./OrgSettingsGrid";
+import { EnvironmentSettingsGrid, EnvApiGridRow } from "./EnvironmentSettingsGrid";
+import { getEnvironmentManagementSettings, updateEnvironmentManagementSettings } from "../utils/environmentManagement";
+
+ModuleRegistry.registerModules([TextFilterModule, ClientSideRowModelModule]);
+
 
 const myTheme = themeQuartz.withParams({
   headerHeight: "30px",
@@ -33,17 +31,128 @@ interface EnvManagerProps {
   onLog: (message: string, type?: "info" | "success" | "warning" | "error") => void;
 }
 
-function setItemEdit(item: orgProp, edit: boolean) {
-  console.log("Setting edit for", item.name, "to", edit);
-  runInAction(() => {
-    item.edit = edit;
-    item.new = item.current;
-  });
+function getConnectionKey(connection: ToolBoxAPI.DataverseConnection | null): string {
+  if (!connection) {
+    return "none";
+  }
+
+  const c = connection as unknown as { id?: string; uniqueName?: string; name?: string };
+  return `${c.id ?? ""}|${c.uniqueName ?? ""}|${c.name ?? ""}`;
+}
+
+const envSettingTextProperties = new Set<string>([
+  "Id",
+  "TenantId",
+  "AllowedIpRangeForStorageAccessSignatures",
+  "IpBasedStorageAccessSignatureMode",
+  "PowerPages_AllowNonProdPublicSites_Exemptions",
+  "CopilotStudio_DisclaimerMessage",
+  "CopilotStudio_ComputerUseAppAllowlist",
+  "CopilotStudio_ComputerUseWebAllowlist",
+  "PowerApps_CSPReportingEndpoint",
+  "PowerApps_CSPConfigCodeApps",
+  "CopilotStudio_PrivacyDisclosureMessageUrl",
+  "CopilotStudio_AgentAuthenticationSettings",
+  "MicrosoftApps_GitHubUrl",
+  "MicrosoftApps_CSPReportingEndpoint",
+  "MicrosoftApps_CSPConfig",
+]);
+
+function inferEnvironmentValueType(
+  property: string,
+  value: unknown
+): "boolean" | "text" | "number" {
+  if (typeof value === "boolean") {
+    return "boolean";
+  }
+  if (typeof value === "number") {
+    return "number";
+  }
+  if (typeof value === "string") {
+    return "text";
+  }
+
+  if (envSettingTextProperties.has(property) || property.endsWith("Id") || property.endsWith("Url")) {
+    return "text";
+  }
+
+  // Most EnvironmentManagementSetting flags are booleans, even when null.
+  return "boolean";
 }
 
 export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element => {
   const { connection, secondaryConnection, isLoading, viewModel, onLog, dvService } = props;
+  const connectionKey = React.useMemo(() => getConnectionKey(connection), [connection]);
+  const secondaryConnectionKey = React.useMemo(() => getConnectionKey(secondaryConnection ?? null), [secondaryConnection]);
   const [loadingSettings, setLoadingSettings] = React.useState(false);
+  const [selectedTab, setSelectedTab] = React.useState("org-settings");
+  const [isEnvApiLoading, setIsEnvApiLoading] = React.useState(false);
+  const [isEnvApiSaving, setIsEnvApiSaving] = React.useState(false);
+  const [isSecondaryEnvApiSaving, setIsSecondaryEnvApiSaving] = React.useState(false);
+  const [envApiLoaded, setEnvApiLoaded] = React.useState(false);
+  const [envApiSecondaryLoaded, setEnvApiSecondaryLoaded] = React.useState(false);
+  const [envApiError, setEnvApiError] = React.useState<string | null>(null);
+  const [envApiRows, setEnvApiRows] = React.useState<EnvApiGridRow[]>([]);
+  const [envApiEnvironmentId, setEnvApiEnvironmentId] = React.useState<string>("");
+  const [secondaryEnvApiEnvironmentId, setSecondaryEnvApiEnvironmentId] = React.useState<string>("");
+
+  function formatGridValue(value: unknown): string | number | boolean | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return value;
+    }
+
+    return JSON.stringify(value);
+  }
+
+  function createEnvApiGrid(payload: unknown): EnvApiGridRow[] {
+    let source: unknown = payload;
+
+    if (Array.isArray(source)) {
+      source = source[0];
+    }
+
+    if (source && typeof source === "object") {
+      const src = source as { objectResult?: unknown; value?: unknown };
+      if (Array.isArray(src.objectResult)) {
+        source = src.objectResult[0];
+      } else if (Array.isArray(src.value)) {
+        source = src.value[0];
+      }
+    }
+
+    let rows: EnvApiGridRow[] = [];
+    if (source && typeof source === "object") {
+      rows = Object.entries(source as Record<string, unknown>).map(([property, value]) => ({
+        property,
+        current: formatGridValue(value),
+        new: formatGridValue(value),
+        edit: false,
+        valueType: inferEnvironmentValueType(property, value),
+        editable: !(property === "Id" || property === "TenantId"),
+      }));
+    } else {
+      rows = [{ property: "value", current: formatGridValue(source), new: formatGridValue(source), edit: false, valueType: "text", editable: false }];
+    }
+
+    return rows;
+  }
+
+  function mergeSecondaryEnvApiGrid(primaryRows: EnvApiGridRow[], payload: unknown): EnvApiGridRow[] {
+    const secondaryRows = createEnvApiGrid(payload);
+    const secondaryMap = new Map(secondaryRows.map((row) => [row.property, row]));
+
+    return primaryRows.map((row) => {
+      const secondaryRow = secondaryMap.get(row.property);
+      return {
+        ...row,
+        secondaryCurrent: secondaryRow?.current ?? null,
+        secondaryNew: secondaryRow?.current ?? null,
+      };
+    });
+  }
 
   // Define helper functions before they are used in useEffect
   function setItemNewValue(item: orgProp, newValue: string, secondary?: boolean): void {
@@ -56,126 +165,215 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     });
   }
 
-  const saveHeaderButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
-    return (
-      <div
-        className="customInnerHeaderGroup"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          justifyItems: "flex-end",
-        }}
-      >
-        <div style={{ marginRight: "10px", width: "100%" }}>{params.displayName}</div>
-        {viewModel.fullList.filter((op) => op.edit && op.new !== op.current).length > 0 && (
-          <Button icon={<Save20Filled />} onClick={() => saveOrgSettings()} />
-        )}
-      </div>
-    );
-  });
-
-  const saveHeaderSecondaryButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
-    return (
-      <div
-        className="customInnerHeaderGroup"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          justifyItems: "flex-end",
-        }}
-      >
-        <div style={{ marginRight: "10px", width: "100%" }}>{params.displayName}</div>
-        {viewModel.fullList.filter((op) => op.edit && op.secondaryNew !== op.secondaryCurrent).length > 0 && (
-          <Button icon={<Save20Filled />} onClick={() => saveOrgSettings(true)} />
-        )}
-      </div>
-    );
-  });
-
-  const cellIcon = observer((params: CustomCellRendererProps<orgProp>) => (
-    <div className="imgSpanLogo" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-      {params.data?.edit ? (
-        <Button
-          icon={<ArrowUndoRegular />}
-          onClick={() => params.data && setItemEdit(params.data, !params.data.edit)}
-        />
-      ) : (
-        <Button icon={<EditRegular />} onClick={() => params.data && setItemEdit(params.data, !params.data.edit)} />
-      )}
-    </div>
-  ));
-
-  const cellInfo = observer((params: CustomCellRendererProps<orgProp>) => (
-    <div className="imgCellInfo">{params.data && <InfoPopup item={params.data} />}</div>
-  ));
-
-  // Column Definitions: Defines the columns to be displayed.
-  const [colDefs, setColDefs] = React.useState<ColGroupDef<orgProp>[]>([
-    {
-      headerName: "",
-      children: [{ colId: "Edit", resizable: false, width: 50, sortable: false }, { field: "name" }],
-    },
-    {
-      headerName: connection ? connection.name : "Primary Connection",
-      children: [
-        { field: "current", headerName: connection ? `${connection.name} Current Value` : "Current Value" },
-        { field: "new", headerName: connection ? `${connection.name} New Value` : "New Value" },
-      ],
-    },
-  ]);
+  React.useEffect(() => {
+    setSelectedTab("org-settings");
+    setEnvApiLoaded(false);
+    setEnvApiSecondaryLoaded(false);
+    setEnvApiRows([]);
+    setEnvApiEnvironmentId("");
+    setSecondaryEnvApiEnvironmentId("");
+    setEnvApiError(null);
+  }, [connectionKey, secondaryConnectionKey]);
 
   React.useEffect(() => {
-    const secondaryHeaders: ColGroupDef<orgProp>[] = secondaryConnection
-      ? [
-          {
-            headerName: secondaryConnection.name,
-            children: [
-              { field: "secondaryCurrent", headerName: `Current Value`, flex: 1 },
-              {
-                field: "secondaryNew",
-                flex: 1,
-                headerName: "New Value",
-                headerComponent: saveHeaderSecondaryButton,
-                cellRenderer: (params: { data: orgProp }) =>
-                  params.data ? (
-                    <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={true} />
-                  ) : null,
-              },
-            ],
-          },
-        ]
-      : [];
+    if (!connection) {
+      return;
+    }
 
-    setColDefs([
-      {
-        headerName: "",
-        children: [
-          { colId: "Edit", resizable: false, width: 50, sortable: false, headerName: "", cellRenderer: cellIcon },
-          { colId: "Info", resizable: false, width: 50, sortable: false, headerName: "", cellRenderer: cellInfo },
-          { field: "name", headerName: "Name", filter: true, flex: 2 },
-        ],
-      },
-      {
-        headerName: connection ? connection.name : "Primary Connection",
-        children: [
-          { field: "current", headerName: "Current Value", flex: 1 },
-          {
-            field: "new",
-            flex: 1,
-            headerName: "New Value",
-            headerComponent: saveHeaderButton,
-            cellRenderer: (params: { data: orgProp }) =>
-              params.data ? (
-                <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={false} />
-              ) : null,
-          },
-        ],
-      },
-      ...secondaryHeaders,
-    ]);
-  }, [connection, secondaryConnection]);
+    let cancelled = false;
+
+    const loadEnvironmentSettings = async () => {
+      setIsEnvApiLoading(true);
+      setEnvApiError(null);
+      try {
+        const envId = await dvService.getEnvironmentId();
+        setEnvApiEnvironmentId(envId);
+        const response = await getEnvironmentManagementSettings(envId, { connectionTarget: "primary" });
+        if (cancelled) {
+          return;
+        }
+
+        let gridRows = createEnvApiGrid(response);
+        if (secondaryConnection) {
+          try {
+            const secondaryEnvId = await dvService.getEnvironmentId(true);
+            setSecondaryEnvApiEnvironmentId(secondaryEnvId);
+            const secondaryResponse = await getEnvironmentManagementSettings(secondaryEnvId, {
+              connectionTarget: "secondary",
+            });
+            if (cancelled) {
+              return;
+            }
+
+            gridRows = mergeSecondaryEnvApiGrid(gridRows, secondaryResponse);
+            setEnvApiSecondaryLoaded(true);
+          } catch (secondaryErr) {
+            setSecondaryEnvApiEnvironmentId("");
+            setEnvApiSecondaryLoaded(false);
+            console.warn("[EnvTabs] Secondary environment API load failed", secondaryErr);
+            onLog(`Unable to load secondary environment settings: ${String(secondaryErr)}`, "warning");
+          }
+        } else {
+          setSecondaryEnvApiEnvironmentId("");
+          setEnvApiSecondaryLoaded(false);
+        }
+
+        setEnvApiRows(gridRows);
+        setEnvApiError(null);
+        setEnvApiLoaded(true);
+        onLog("Environment settings loaded from EnvironmentManagement API", "success");
+      } catch (err) {
+        console.error("[EnvTabs] Environment API load failed", err);
+        if (cancelled) {
+          return;
+        }
+
+        setEnvApiLoaded(false);
+        setEnvApiError(String(err));
+        onLog(`Unable to load environment settings: ${String(err)}`, "warning");
+      } finally {
+        if (!cancelled) {
+          setIsEnvApiLoading(false);
+        }
+      }
+    };
+
+    loadEnvironmentSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connection, connectionKey, secondaryConnection, dvService, onLog]);
+
+  const handleEnvironmentToggleEdit = React.useCallback((property: string, edit: boolean) => {
+    setEnvApiRows((prev) =>
+      prev.map((row) => {
+        if (row.property !== property) {
+          return row;
+        }
+
+        return {
+          ...row,
+          edit,
+          new: edit ? row.new : row.current,
+        };
+      })
+    );
+  }, []);
+
+  const handleEnvironmentNewValueChange = React.useCallback((property: string, nextValue: string | number | boolean | null, secondary?: boolean) => {
+    setEnvApiRows((prev) =>
+      prev.map((row) => {
+        if (row.property !== property) {
+          return row;
+        }
+
+        if (secondary) {
+          return { ...row, secondaryNew: nextValue };
+        }
+
+        return { ...row, new: nextValue };
+      })
+    );
+  }, []);
+
+  const saveEnvironmentSettings = React.useCallback(async (secondary?: boolean) => {
+    const targetLabel = secondary ? "secondary" : "primary";
+    const targetEnvironmentId = secondary ? secondaryEnvApiEnvironmentId : envApiEnvironmentId;
+
+    if (!targetEnvironmentId) {
+      onLog(`Cannot save ${targetLabel} environment settings: environment id is missing`, "error");
+      return;
+    }
+
+    const editedItems = envApiRows.filter((row) => {
+      if (!row.edit || row.editable === false) {
+        return false;
+      }
+
+      return secondary ? row.secondaryNew !== row.secondaryCurrent : row.new !== row.current;
+    });
+
+    if (editedItems.length === 0) {
+      window.toolboxAPI.utils.showNotification({
+        title: "No changes to save",
+        body: secondary
+          ? "No secondary environment settings have been modified."
+          : "No environment settings have been modified.",
+      });
+      return;
+    }
+
+    if (secondary) {
+      setIsSecondaryEnvApiSaving(true);
+    } else {
+      setIsEnvApiSaving(true);
+    }
+
+    try {
+      const payload = editedItems.reduce<Record<string, string | number | boolean | null>>((acc, item) => {
+        acc[item.property] = secondary ? item.secondaryNew ?? null : item.new;
+        return acc;
+      }, {});
+
+      const response = await updateEnvironmentManagementSettings(targetEnvironmentId, payload, {
+        connectionTarget: secondary ? "secondary" : "primary",
+      });
+      const responseObj = response as { errors?: { message?: string } | null; responseMessage?: string };
+
+      if (responseObj.errors || responseObj.responseMessage) {
+        const errorMessage = responseObj.errors?.message ?? responseObj.responseMessage ?? "Unknown API error";
+        throw new Error(errorMessage);
+      }
+
+      setEnvApiRows((prev) =>
+        prev.map((row) => {
+          const updatedValue = payload[row.property];
+          if (updatedValue === undefined) {
+            return row;
+          }
+
+          if (secondary) {
+            return {
+              ...row,
+              secondaryCurrent: updatedValue,
+              secondaryNew: updatedValue,
+              edit: false,
+            };
+          }
+
+          return {
+            ...row,
+            current: updatedValue,
+            new: updatedValue,
+            edit: false,
+          };
+        })
+      );
+      onLog(`Updated ${editedItems.length} ${targetLabel} environment setting(s) successfully`, "success");
+      window.toolboxAPI.utils.showNotification({
+        title: "Environment settings updated",
+        body: `Saved ${editedItems.length} ${secondary ? "secondary " : ""}setting(s).`,
+        type: "success",
+        duration: 3000,
+      });
+    } catch (err) {
+      const message = String(err);
+      onLog(`Failed to update ${targetLabel} environment settings: ${message}`, "error");
+      window.toolboxAPI.utils.showNotification({
+        title: `Failed to update ${targetLabel} environment settings`,
+        body: message,
+        type: "error",
+        duration: 4000,
+      });
+    } finally {
+      if (secondary) {
+        setIsSecondaryEnvApiSaving(false);
+      } else {
+        setIsEnvApiSaving(false);
+      }
+    }
+  }, [secondaryEnvApiEnvironmentId, envApiEnvironmentId, envApiRows, onLog]);
 
   React.useEffect(() => {
     onLog("EnvManager mounted", "info");
@@ -206,10 +404,6 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlSeanMcNe, "application/xml");
       const defaultOrgSettingsNode = xmlDoc.getElementsByTagName("defaultOrgSettings")[0];
-      // console.log(
-      //   "defaultOrgSettingsNode:",
-      //   defaultOrgSettingsNode.childNodes
-      // );
       if (defaultOrgSettingsNode) {
         viewModel.blankList = Array.from(defaultOrgSettingsNode.childNodes)
           .filter(
@@ -232,8 +426,6 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
             setting.default = el.getAttribute("defaultValue") || "";
             setting.url = el.getAttribute("supportUrl") || "";
             setting.urlTitle = el.getAttribute("urlTitle") || "";
-
-            // console.log("Parsed setting:", setting);
             return setting;
           });
         const linkeD365Url = "https://raw.githubusercontent.com/LinkeD365/OrgSettings/master/LinkeD65OrgSettings.xml";
@@ -244,7 +436,6 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         const xmlLD365Doc = parser.parseFromString(xmlLD365, "application/xml");
         // Merge LinkedD365 info into existing fullList by matching names
         const linkedElements = Array.from(xmlLD365Doc.getElementsByTagName("orgSetting")) as Element[];
-        console.log("Fetched LinkedD365 XML:", linkedElements);
         runInAction(() => {
           if (!Array.isArray(viewModel.blankList)) return;
 
@@ -269,7 +460,6 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
 
   const fetchOrgSettings = async () => {
     if (!connection) {
-      console.log("This should not happen: fetchOrgSettings called without connection");
       window.toolboxAPI.utils.showNotification({
         title: "No active connection",
         body: "Please connect to a Dataverse environment to use this tool.",
@@ -285,7 +475,6 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     await dvService
       .getOrgSettings()
       .then(async ([orgId, settings]) => {
-        console.log("Fetched org settings:", orgId, settings);
         viewModel.primaryOrgId = orgId;
         if (
           Array.isArray(viewModel.blankList) &&
@@ -297,9 +486,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
 
           runInAction(() => {
             viewModel.fullList = observable([]);
-            // console.log("blank count:", viewModel.blankList.length);
             viewModel.blankList.forEach((f) => {
-              //  console.log("Merging setting:", f.name);
               const match = rowMap.get(f.name?.toLowerCase() ?? "");
               if (match) {
                 // Prefer the value from rows for current if present
@@ -313,17 +500,13 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         }
 
         if (secondaryConnection) {
-          console.log("Fetching org settings with secondary connection");
           await dvService.getOrgSettings(true).then(([orgId, secSettings]) => {
-            console.log("Fetched org settings:", orgId, secSettings);
             viewModel.secondaryOrgId = orgId;
 
             const secRows = new Map(secSettings.map((r) => [r.name?.toLowerCase() ?? "", r]));
 
             runInAction(() => {
-              // console.log("blank count:", viewModel.blankList.length);
               viewModel.fullList.forEach((setting) => {
-                //  console.log("Merging setting:", f.name);
                 const match = secRows.get(setting.name?.toLowerCase() ?? "");
                 if (match) {
                   // Prefer the value from rows for current if present
@@ -365,6 +548,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
       editedItems = editedItems.filter((item) => item.new !== item.current);
     }
     if (editedItems.length === 0) {
+
       window.toolboxAPI.utils.showNotification({
         title: "No changes to save",
         body: "No values have been modified.",
@@ -386,7 +570,12 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         return;
       }
 
-      window.toolboxAPI.utils.showLoading("Saving organization settings...");
+      window.toolboxAPI.utils.showNotification({
+        title: "Saving organization settings...",
+        body: `Saving ${editedItems.length} organization setting(s)...`,
+        type: "info",
+        duration: 3000,
+      });
       onLog(`Saving ${editedItems.length} organization setting(s)...`, "info");
       try {
         let updateString = "<orgSettings>";
@@ -399,7 +588,6 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
             : `<${it.name}>${it.new ?? it.current}</${it.name}>`;
         });
         updateString += "</orgSettings>";
-        console.log("Update string:", updateString);
         await dvService
           .updateOrgSettingsXml(
             updateString,
@@ -427,7 +615,12 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         });
         onLog(`Failed to save org settings: ${String(err)}`, "error");
       } finally {
-        window.toolboxAPI.utils.hideLoading();
+        window.toolboxAPI.utils.showNotification({
+          title: "Save operation completed",
+          body: "The save operation has completed.",
+          type: "info",
+          duration: 1000,
+        });
       }
     })();
   }
@@ -458,9 +651,63 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     );
   }
 
+  const showTabs = envApiLoaded;
+
   return (
-    <div style={{ width: "95vw", height: "98vh" }}>
-      <AgGridReact<orgProp> theme={myTheme} rowData={viewModel.fullList} columnDefs={colDefs} domLayout="normal" />
+    <div style={{ width: "95vw", height: "98vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, minHeight: 0, minWidth: 0, marginTop: "8px", display: "flex", flexDirection: "column" }}>
+        {showTabs && (
+          <TabList
+            selectedValue={selectedTab}
+            onTabSelect={(_event: SelectTabEvent, data: SelectTabData) => setSelectedTab(String(data.value))}
+            size="small"
+          >
+            <Tab value="org-settings">Organization Settings</Tab>
+            <Tab value="environment-settings">Environment Settings API</Tab>
+          </TabList>
+        )}
+
+        <div style={{ flex: 1, minHeight: 0, minWidth: 0, overflow: "hidden", marginTop: showTabs ? "8px" : "0" }}>
+          {(!showTabs || selectedTab === "org-settings") && (
+            <OrgSettingsGrid
+              theme={myTheme}
+              rowData={viewModel.fullList}
+              connectionName={connection.name}
+              secondaryConnectionName={secondaryConnection?.name}
+              isPowerPlatformApiUnavailable={Boolean(envApiError)}
+              onSavePrimary={() => saveOrgSettings()}
+              onSaveSecondary={() => saveOrgSettings(true)}
+              setItemNewValue={setItemNewValue}
+            />
+          )}
+
+          {showTabs && selectedTab === "environment-settings" && (
+            <EnvironmentSettingsGrid
+              isLoading={isEnvApiLoading}
+              error={envApiError}
+              isLoaded={envApiLoaded}
+              rows={envApiRows}
+              connectionName={connection?.name}
+              secondaryConnectionName={envApiSecondaryLoaded ? secondaryConnection?.name : undefined}
+              isSaving={isEnvApiSaving}
+              isSecondarySaving={isSecondaryEnvApiSaving}
+              hasPendingChanges={envApiRows.some((row) => row.edit && row.new !== row.current && row.editable !== false)}
+              hasSecondaryPendingChanges={envApiRows.some(
+                (row) => row.edit && row.secondaryNew !== row.secondaryCurrent && row.editable !== false
+              )}
+              onToggleEdit={handleEnvironmentToggleEdit}
+              onNewValueChange={handleEnvironmentNewValueChange}
+              onSave={() => {
+                void saveEnvironmentSettings();
+              }}
+              onSaveSecondary={() => {
+                void saveEnvironmentSettings(true);
+              }}
+              theme={myTheme}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 });

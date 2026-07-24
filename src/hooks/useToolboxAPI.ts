@@ -61,7 +61,6 @@ export function useEventLog() {
       },
       ...prev.slice(0, 49), // Keep last 50 entries
     ]);
-    console.log(`[${type.toUpperCase()}] ${message}`);
   }, []); // Empty deps is safe because we use functional setState
 
   const clearLogs = useCallback(() => {

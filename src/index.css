@@ -259,6 +259,90 @@ body {
   background: #e0a800;
 }
 
+.env-grid-shell {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.env-grid-shell .ag-root-wrapper,
+.env-grid-shell .ag-root-wrapper-body,
+.env-grid-shell .ag-center-cols-viewport,
+.env-grid-shell .ag-body-viewport,
+.env-grid-shell .ag-body-horizontal-scroll-viewport {
+  min-width: 0;
+}
+
+.env-grid-shell .ag-cell,
+.env-grid-shell .ag-cell-wrapper,
+.env-grid-shell .ag-cell-value,
+.env-grid-shell .ag-header-cell,
+.env-grid-shell .ag-header-group-cell {
+  min-width: 0;
+}
+
+.env-grid-shell .fui-Input,
+.env-grid-shell .fui-Switch {
+  max-width: 100%;
+}
+
+.env-grid-value {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.env-grid-header-label {
+  margin-right: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-grid-shell {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.org-grid-shell .ag-root-wrapper,
+.org-grid-shell .ag-root-wrapper-body,
+.org-grid-shell .ag-center-cols-viewport,
+.org-grid-shell .ag-body-viewport,
+.org-grid-shell .ag-body-horizontal-scroll-viewport,
+.org-grid-shell .ag-cell,
+.org-grid-shell .ag-cell-wrapper,
+.org-grid-shell .ag-cell-value,
+.org-grid-shell .ag-header-cell,
+.org-grid-shell .ag-header-group-cell {
+  min-width: 0;
+}
+
+.org-grid-value {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-grid-header-label {
+  margin-right: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .btn-error {
   background: #dc3545;
 }
