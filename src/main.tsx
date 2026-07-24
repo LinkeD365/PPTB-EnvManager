@@ -10,10 +10,6 @@ if (rootElement && !rootElement.hasAttribute("data-reactroot-initialized")) {
   rootElement.setAttribute("data-reactroot-initialized", "true");
 
   (async () => {
-    console.log("Initializing React application...");
-
-    //console.log("Theme from settings:", theme);
-    //  const currentTheme = await window.toolboxAPI.settings.getSettings();
     createRoot(rootElement).render(
       <StrictMode>
         <App />

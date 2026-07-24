@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConnection, useEventLog, useToolboxEvents } from "./hooks/useToolboxAPI";
 import { EnvManager } from "./components/EnvManager";
 import { ViewModel } from "./model/ViewModel";
@@ -12,10 +12,8 @@ function App() {
   const [viewModel] = useState(() => new ViewModel());
 
   const getTheme = useCallback(async () => {
-    console.log("Fetching current theme from toolbox API");
     const currentTheme = await window.toolboxAPI.utils.getCurrentTheme();
     setTheme(currentTheme);
-    console.log("Current theme set to:", currentTheme);
     viewModel.theme = currentTheme;
     document.body.setAttribute("data-theme", currentTheme);
   }, [viewModel]);
@@ -23,11 +21,9 @@ function App() {
   // Handle platform events
   const handleEvent = useCallback(
     (event: string, _data: any) => {
-      console.log("Event received in App component:", event);
       switch (event) {
         case "connection:updated":
         case "connection:created":
-          console.log("Connection event received:", event);
           refreshConnection();
           break;
 
@@ -41,7 +37,6 @@ function App() {
           // Terminal events handled by dedicated components
           break;
         case "settings:updated":
-          console.log("Theme or settings updated, refreshing theme");
           getTheme();
 
           break;
@@ -61,12 +56,16 @@ function App() {
     addLog("Environment Manager initialized", "success");
   }, [addLog]);
 
-  const dvSvc = new dvService({
-    connection: connection,
-    secondaryConnection: secondaryConnection,
-    dvApi: window.dataverseAPI,
-    onLog: addLog,
-  });
+  const dvSvc = useMemo(
+    () =>
+      new dvService({
+        connection: connection,
+        secondaryConnection: secondaryConnection,
+        dvApi: window.dataverseAPI,
+        onLog: addLog,
+      }),
+    [connection, secondaryConnection, addLog]
+  );
   return (
     <>
       <FluentProvider theme={theme === "dark" ? webDarkTheme : webLightTheme}>
