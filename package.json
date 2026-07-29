@@ -4,6 +4,7 @@
   "displayName": "Environment Manager",
   "description": "A Power Platform Tool Box tool to manage optional settings per environment.",
   "main": "index.html",
+  "icon": "Linked365Logo.svg",
   "contributors": [
     {
       "name": "LinkeD365",
@@ -24,8 +25,7 @@
   "configurations": {
     "repository": "https://github.com/LinkeD365/PPTB-EnvManager",
     "website": "https://linked365.blog",
-    "readmeUrl": "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/refs/heads/main/README.md",
-    "iconUrl": "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/refs/heads/main/assets/smallIcon.png"
+    "readmeUrl": "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/refs/heads/main/README.md"
   },
   "repository": {
     "type": "git",
@@ -49,7 +49,8 @@
     "dev": "vite",
     "preview": "vite preview",
     "watch": "vite build --watch",
-    "finalize-package": "npm shrinkwrap"
+    "finalize-package": "npm shrinkwrap",
+    "validate": "pptb-validate"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.72.9",
