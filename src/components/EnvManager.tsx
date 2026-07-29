@@ -15,6 +15,14 @@ import { OrgSettingsGrid } from "./OrgSettingsGrid";
 import { EnvironmentSettingsGrid, EnvApiGridRow } from "./EnvironmentSettingsGrid";
 import { getEnvironmentManagementSettings, updateEnvironmentManagementSettings } from "../utils/environmentManagement";
 
+interface EnvApiInfoItem {
+  apiName: string;
+  shortDescription: string;
+  link?: string;
+}
+
+const ENV_API_INFO_URL = "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/main/PPApiInfo.json";
+
 ModuleRegistry.registerModules([TextFilterModule, ClientSideRowModelModule]);
 
 
@@ -95,6 +103,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
   const [envApiRows, setEnvApiRows] = React.useState<EnvApiGridRow[]>([]);
   const [envApiEnvironmentId, setEnvApiEnvironmentId] = React.useState<string>("");
   const [secondaryEnvApiEnvironmentId, setSecondaryEnvApiEnvironmentId] = React.useState<string>("");
+  const [envApiInfoLookup, setEnvApiInfoLookup] = React.useState<Map<string, EnvApiInfoItem>>(new Map());
 
   function formatGridValue(value: unknown): string | number | boolean | null {
     if (value === null || value === undefined) {
@@ -140,6 +149,17 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     return rows;
   }
 
+  function attachEnvApiInfo(rows: EnvApiGridRow[], lookup: Map<string, EnvApiInfoItem>): EnvApiGridRow[] {
+    return rows.map((row) => {
+      const info = lookup.get(row.property.toLowerCase());
+      return {
+        ...row,
+        shortDescription: info?.shortDescription,
+        link: info?.link,
+      };
+    });
+  }
+
   function mergeSecondaryEnvApiGrid(primaryRows: EnvApiGridRow[], payload: unknown): EnvApiGridRow[] {
     const secondaryRows = createEnvApiGrid(payload);
     const secondaryMap = new Map(secondaryRows.map((row) => [row.property, row]));
@@ -174,6 +194,48 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     setSecondaryEnvApiEnvironmentId("");
     setEnvApiError(null);
   }, [connectionKey, secondaryConnectionKey]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadEnvApiInfo = async () => {
+      try {
+        const response = await fetch(ENV_API_INFO_URL);
+        if (!response.ok) {
+          throw new Error(`Network response was not ok (${response.status})`);
+        }
+        
+        const payload = (await response.json()) as EnvApiInfoItem[];
+        console.log("[EnvManager] Loaded environment API info", payload);
+        if (cancelled) {
+          return;
+        }
+
+        const lookup = new Map(
+          payload.map((item) => [item.apiName.trim().toLowerCase(), item])
+        );
+        setEnvApiInfoLookup(lookup);
+      } catch (err) {
+        if (!cancelled) {
+          onLog(`Unable to load environment setting info: ${String(err)}`, "warning");
+        }
+      }
+    };
+
+    loadEnvApiInfo();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onLog]);
+
+  React.useEffect(() => {
+    if (envApiInfoLookup.size === 0) {
+      return;
+    }
+
+    setEnvApiRows((prev) => attachEnvApiInfo(prev, envApiInfoLookup));
+  }, [envApiInfoLookup]);
 
   React.useEffect(() => {
     if (!connection) {
@@ -216,6 +278,10 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
         } else {
           setSecondaryEnvApiEnvironmentId("");
           setEnvApiSecondaryLoaded(false);
+        }
+
+        if (envApiInfoLookup.size > 0) {
+          gridRows = attachEnvApiInfo(gridRows, envApiInfoLookup);
         }
 
         setEnvApiRows(gridRows);
