@@ -13,7 +13,19 @@ import { orgProp } from "../model/OrgSetting";
 import { observable, runInAction } from "mobx";
 import { OrgSettingsGrid } from "./OrgSettingsGrid";
 import { EnvironmentSettingsGrid, EnvApiGridRow } from "./EnvironmentSettingsGrid";
-import { getEnvironmentManagementSettings, updateEnvironmentManagementSettings } from "../utils/environmentManagement";
+import { PoliciesGrid } from "./PoliciesGrid";
+import {
+  getEnvironmentGroups,
+  getEnvironments,
+  getEnvironmentManagementSettings,
+  updateEnvironmentManagementSettings,
+} from "../utils/environmentManagement";
+import { EnvironmentGroupsList, EnvironmentGroupRow, normalizeEnvironmentGroups } from "./EnvironmentGroupsList";
+
+interface EnvironmentGroupStats {
+  count: number;
+  names: string[];
+}
 
 interface EnvApiInfoItem {
   apiName: string;
@@ -95,15 +107,22 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
   const [loadingSettings, setLoadingSettings] = React.useState(false);
   const [selectedTab, setSelectedTab] = React.useState("org-settings");
   const [isEnvApiLoading, setIsEnvApiLoading] = React.useState(false);
+  const [isEnvGroupsLoading, setIsEnvGroupsLoading] = React.useState(false);
   const [isEnvApiSaving, setIsEnvApiSaving] = React.useState(false);
   const [isSecondaryEnvApiSaving, setIsSecondaryEnvApiSaving] = React.useState(false);
   const [envApiLoaded, setEnvApiLoaded] = React.useState(false);
+  const [envGroupsLoaded, setEnvGroupsLoaded] = React.useState(false);
   const [envApiSecondaryLoaded, setEnvApiSecondaryLoaded] = React.useState(false);
   const [envApiError, setEnvApiError] = React.useState<string | null>(null);
+  const [envGroupsError, setEnvGroupsError] = React.useState<string | null>(null);
   const [envApiRows, setEnvApiRows] = React.useState<EnvApiGridRow[]>([]);
+  const [envGroupsRows, setEnvGroupsRows] = React.useState<EnvironmentGroupRow[]>([]);
+  const [envGroupStats, setEnvGroupStats] = React.useState<Map<string, EnvironmentGroupStats>>(new Map());
   const [envApiEnvironmentId, setEnvApiEnvironmentId] = React.useState<string>("");
   const [secondaryEnvApiEnvironmentId, setSecondaryEnvApiEnvironmentId] = React.useState<string>("");
   const [envApiInfoLookup, setEnvApiInfoLookup] = React.useState<Map<string, EnvApiInfoItem>>(new Map());
+  const [selectedEnvironmentGroups, setSelectedEnvironmentGroups] = React.useState<EnvironmentGroupRow[]>([]);
+  const envGroupStatsRef = React.useRef(envGroupStats);
 
   function formatGridValue(value: unknown): string | number | boolean | null {
     if (value === null || value === undefined) {
@@ -174,6 +193,63 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     });
   }
 
+  function getEnvironmentGroupStats(payload: unknown): Map<string, EnvironmentGroupStats> {
+    let source: unknown = payload;
+
+    if (source && typeof source === "object") {
+      const src = source as { value?: unknown; objectResult?: unknown };
+      if (Array.isArray(src.value)) {
+        source = src.value;
+      } else if (Array.isArray(src.objectResult)) {
+        source = src.objectResult;
+      }
+    }
+
+    const stats = new Map<string, EnvironmentGroupStats>();
+    if (!Array.isArray(source)) {
+      return stats;
+    }
+
+    source.forEach((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return;
+      }
+
+      const environment = entry as Record<string, unknown>;
+      const environmentGroupId = String(environment.environmentGroupId ?? "").trim();
+      if (!environmentGroupId) {
+        return;
+      }
+
+      const environmentName = String(environment.displayName ?? environment.name ?? environment.id ?? "").trim();
+      const current = stats.get(environmentGroupId) ?? { count: 0, names: [] };
+
+      current.count += 1;
+      if (environmentName) {
+        current.names.push(environmentName);
+      }
+
+      stats.set(environmentGroupId, current);
+    });
+
+    stats.forEach((value) => {
+      value.names = Array.from(new Set(value.names)).sort((left, right) => left.localeCompare(right));
+    });
+
+    return stats;
+  }
+
+  function applyEnvironmentGroupCounts(
+    rows: EnvironmentGroupRow[],
+    stats: Map<string, EnvironmentGroupStats>
+  ): EnvironmentGroupRow[] {
+    return rows.map((row) => ({
+      ...row,
+      environmentCount: stats.get(row.environmentGroupId)?.count ?? stats.get(row.id)?.count ?? 0,
+      environmentNames: stats.get(row.environmentGroupId)?.names ?? stats.get(row.id)?.names ?? [],
+    }));
+  }
+
   // Define helper functions before they are used in useEffect
   function setItemNewValue(item: orgProp, newValue: string, secondary?: boolean): void {
     runInAction(() => {
@@ -188,12 +264,21 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
   React.useEffect(() => {
     setSelectedTab("org-settings");
     setEnvApiLoaded(false);
+    setEnvGroupsLoaded(false);
     setEnvApiSecondaryLoaded(false);
     setEnvApiRows([]);
+    setEnvGroupsRows([]);
+    setEnvGroupStats(new Map());
+    setSelectedEnvironmentGroups([]);
     setEnvApiEnvironmentId("");
     setSecondaryEnvApiEnvironmentId("");
     setEnvApiError(null);
+    setEnvGroupsError(null);
   }, [connectionKey, secondaryConnectionKey]);
+
+  React.useEffect(() => {
+    envGroupStatsRef.current = envGroupStats;
+  }, [envGroupStats]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -310,6 +395,100 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
       cancelled = true;
     };
   }, [connection, connectionKey, secondaryConnection, dvService, onLog]);
+
+  React.useEffect(() => {
+    if (!connection) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadEnvironmentGroups = async () => {
+      setIsEnvGroupsLoading(true);
+      setEnvGroupsError(null);
+
+      try {
+        const response = await getEnvironmentGroups({ connectionTarget: "primary" });
+        if (cancelled) {
+          return;
+        }
+
+        const normalizedRows = normalizeEnvironmentGroups(response);
+        const currentStats = envGroupStatsRef.current;
+        setEnvGroupsRows(applyEnvironmentGroupCounts(normalizedRows, currentStats));
+        setEnvGroupsLoaded(true);
+        onLog("Environment groups loaded from EnvironmentManagement API", "success");
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        setEnvGroupsLoaded(false);
+        setEnvGroupsError(String(err));
+        onLog(`Unable to load environment groups: ${String(err)}`, "warning");
+      } finally {
+        if (!cancelled) {
+          setIsEnvGroupsLoading(false);
+        }
+      }
+    };
+
+    loadEnvironmentGroups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connection, connectionKey, onLog]);
+
+  React.useEffect(() => {
+    if (!connection) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadEnvironmentGroupCounts = async () => {
+      try {
+        const response = await getEnvironments({ connectionTarget: "primary" });
+        if (cancelled) {
+          return;
+        }
+
+        const stats = getEnvironmentGroupStats(response);
+        setEnvGroupStats(stats);
+        setEnvGroupsRows((prev) => applyEnvironmentGroupCounts(prev, stats));
+      } catch (err) {
+        if (!cancelled) {
+          onLog(`Unable to load environment counts: ${String(err)}`, "warning");
+        }
+      }
+    };
+
+    loadEnvironmentGroupCounts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connection, connectionKey, onLog]);
+
+  React.useEffect(() => {
+    if (selectedEnvironmentGroups.length === 0) {
+      return;
+    }
+
+    const selectedIds = new Set(envGroupsRows.map((row) => row.environmentGroupId));
+    const validSelection = selectedEnvironmentGroups.filter((group) => selectedIds.has(group.environmentGroupId));
+
+    if (validSelection.length !== selectedEnvironmentGroups.length) {
+      setSelectedEnvironmentGroups(validSelection);
+    }
+  }, [envGroupsRows, selectedEnvironmentGroups]);
+
+  React.useEffect(() => {
+    if (selectedTab === "environment-groups" && !envGroupsLoaded) {
+      setSelectedTab("org-settings");
+    }
+  }, [selectedTab, envGroupsLoaded]);
 
   const handleEnvironmentToggleEdit = React.useCallback((property: string, edit: boolean) => {
     setEnvApiRows((prev) =>
@@ -718,7 +897,8 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
     );
   }
 
-  const showTabs = envApiLoaded || Boolean(envApiError);
+  const showTabs = envApiLoaded || envGroupsLoaded || Boolean(envApiError) || Boolean(envGroupsError);
+  const canShowEnvironmentGroupsTab = envGroupsLoaded;
 
   return (
     <div style={{ width: "95vw", height: "98vh", display: "flex", flexDirection: "column" }}>
@@ -731,6 +911,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
           >
             <Tab value="org-settings">Organization Settings</Tab>
             <Tab value="environment-settings">Environment Settings API</Tab>
+            {canShowEnvironmentGroupsTab && <Tab value="environment-groups">Environment Groups</Tab>}
           </TabList>
         )}
 
@@ -772,6 +953,26 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
               }}
               theme={myTheme}
             />
+          )}
+
+          {showTabs && selectedTab === "environment-groups" && (
+            selectedEnvironmentGroups.length > 0 ? (
+              <PoliciesGrid
+                groups={selectedEnvironmentGroups}
+                theme={myTheme}
+                onBack={() => setSelectedEnvironmentGroups([])}
+              />
+            ) : (
+              <EnvironmentGroupsList
+                isLoading={isEnvGroupsLoading}
+                error={envGroupsError}
+                isLoaded={envGroupsLoaded}
+                rows={envGroupsRows}
+                theme={myTheme}
+                onShowPolicies={(row) => setSelectedEnvironmentGroups([row])}
+                onCompareSelectedGroups={(rows) => setSelectedEnvironmentGroups(rows)}
+              />
+            )
           )}
         </div>
       </div>
