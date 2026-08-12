@@ -80,3 +80,39 @@ export const InfoPopup = ({ item }: InfoPopupProps): React.JSX.Element => (
     </TeachingPopoverSurface>
   </TeachingPopover>
 );
+
+interface RuleSetInfoPopupProps {
+  name: string;
+  description?: string;
+  isPreview?: boolean;
+  learnMoreText?: string;
+  learnMoreLink?: string;
+}
+
+export const RuleSetInfoPopup = ({
+  name,
+  description,
+  isPreview,
+  learnMoreText,
+  learnMoreLink,
+}: RuleSetInfoPopupProps): React.JSX.Element => (
+  <TeachingPopover>
+    <TeachingPopoverTrigger>
+      <Button appearance="transparent" icon={<Info16Regular />} />
+    </TeachingPopoverTrigger>
+    <TeachingPopoverSurface>
+      <TeachingPopoverHeader>
+        {name}
+        {isPreview ? " (Preview)" : ""}
+      </TeachingPopoverHeader>
+      <TeachingPopoverBody>
+        <div style={{ marginTop: 8, maxWidth: "300px", marginBottom: 16 }}>{description || "No description available."}</div>
+        {learnMoreLink && (
+          <a href={learnMoreLink} target="_blank" rel="noopener noreferrer">
+            {learnMoreText || "Learn more"}
+          </a>
+        )}
+      </TeachingPopoverBody>
+    </TeachingPopoverSurface>
+  </TeachingPopover>
+);

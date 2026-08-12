@@ -1,0 +1,906 @@
+{
+  "preview": "PREVIEW",
+  "ruleBasedPolicies": {
+    "messageBar": {
+      "environmentInGroup": {
+        "description": "This environment is in a group. Make changes at the group-level for the rule to apply to the entire group.",
+        "descriptionReadOnly": "This environment is in a group where the rule is already applied. Changes must be made at the group-level.",
+        "action": "Go to group"
+      },
+      "microsoftManagedRuleSet": {
+        "description": "This rule is managed by Microsoft. To make changes, go to the Microsoft 365 admin center."
+      }
+    }
+  },
+  "aiGeneratedDescriptions": {
+    "rule": {
+      "name": "AI-generated descriptions (preview)",
+      "description": "Automatically generate descriptions for Power Apps"
+    },
+    "content": {
+      "description": "Let Power Apps do the work for you. If descriptions of apps or solutions are blank, AI will be used to generate them. This will happen when an app is published, or when a solution is deployed. This can help people understand what the purpose of an app or solution is.",
+      "checkbox": {
+        "label": "AI-generated descriptions"
+      },
+      "warning": {
+        "text": "AI-generated descriptions may be inaccurate or inappropriate.",
+        "seeTerms": {
+          "label": "See terms",
+          "ariaLabel": "See terms and conditions regarding using preview features."
+        }
+      }
+    }
+  },
+  "FlowAutomationRestrictions": {
+    "rule": {
+      "name": "Automation restrictions",
+      "description": "Restrictions on cloud flow primary owner changes and connection ownership"
+    },
+    "content": {
+      "description": "A set of governance options to restrict cloud flow automations",
+      "connectionCheckbox": {
+        "label": "Let cloud flow co-owners provide embedded connections"
+      },
+      "ownerCheckbox": {
+        "label": "Let cloud flow co-owners change the primary owner"
+      }
+    }
+  },
+  "generativeAISettings": {
+    "rule": {
+      "name": "Generative AI settings",
+      "description": "Allow generative AI features"
+    }
+  },
+  "PowerAppsContentSecurityPolicy": {
+    "rule": {
+      "name": "Content security policy",
+      "description": "Manage content security policies for Power Apps"
+    }
+  },
+  "MicrosoftAppsContentSecurityPolicy": {
+    "rule": {
+      "name": "Content security policy (managed apps)",
+      "description": "Manage content security policies for managed apps"
+    }
+  },
+  "ManageAppsGitHubSettings": {
+    "rule": {
+      "name": "Managed apps GitHub settings",
+      "description": "Defines the GitHub org for this environment group."
+    },
+    "content": {
+      "auth": {
+        "error": {
+          "installRequired": "GitHub App is not installed in the organization. Please install the app and try again. <0>install now</0>",
+          "configMissing": "Configuration missing. Please check the configuration and try again.",
+          "installTimedOut": "We couldn't confirm the GitHub App installation. Once you've installed it, select Verify GitHub credentials again to retry. <0>install now</0>",
+          "invalidToken": "Invalid personal access token. Please check the token and try again.",
+          "invalidUrl": "Invalid GitHub or GitHub Enterprise URL. Please check the URL and try again.",
+          "networkError": "Network error occurred during verification. Please check your connection and try again.",
+          "notOrgAdmin": "Couldn't confirm you're an admin of this organization. Make sure your token has the admin:read org scope. If you're using a fine-grained token, set its resource owner to this organization and grant Organization members read access. A classic token with read:org is recommended.",
+          "popupBlocked": "The GitHub App installation window was blocked by your browser. Allow pop-ups for this site and select Verify GitHub credentials again.",
+          "unknown": "An unknown error occurred. Please try again."
+        },
+        "success": {
+          "verified": "GitHub credentials were successfully verified. Select <bold>Save</bold> to continue to adding this to your rules."
+        },
+        "verifyCredentialsButton": "Verify GitHub credentials",
+        "verifyingInProgress": "Verifying..."
+      },
+      "description": "Define where apps in this environment group will sync their app to.",
+      "gitHubToken": {
+        "ariaLabel": "GitHub personal access token",
+        "field": "GitHub personal access token",
+        "info": "Provide a GitHub personal access token so we can verify your access to the organization and confirm the GitHub App installation. A classic token with the admin:read org scope is recommended. Fine-grained tokens must have their resource owner set to this organization and be granted Organization administration and Member read access. The token is used only for verification and is not stored.",
+        "placeholder": "Enter your GitHub personal access token"
+      },
+      "gitHubUrl": {
+        "ariaLabel": "GitHub organization URL",
+        "error": "Not a valid GitHub or GitHub Enterprise URL",
+        "field": "GitHub organization",
+        "info": "When a new managed app is created, an associated repository will automatically be created in this GitHub organization. When enabled, the rule only applies to new apps.",
+        "placeholder": "https://github.com/organization/"
+      },
+      "allowPublicRepository": {
+        "field": "Enable makers to create public repositories",
+        "info": "We'll create new private/internal repositories automatically under the specified GitHub organization when new Managed apps are created. Makers are allowed to use existing repositories within this GitHub organization only.",
+        "label": "Allow public GitHub repositories"
+      }
+    },
+    "installedPage": {
+      "close": "You can now close this window and return to Power Platform Admin Center.",
+      "closing": "Closing this window...",
+      "installed": "GitHub App installed"
+    }
+  },
+  "MakerOnboardingContent": {
+    "rule": {
+      "name": "Maker welcome content",
+      "description": "Provide customized welcome content to help makers get started with Power Apps."
+    },
+    "content": {
+      "description": "Provide customized welcome content to help makers get started with Power Apps.",
+      "learnMoreAriaLabel": "Learn more about maker welcome content",
+      "contentTextField": {
+        "placeholder": "Copy and paste or enter Markdown or plain text here.",
+        "charactersRemaining": "{{ currentCount }}/{{ max }} characters remaining"
+      },
+      "welcomeContentCheckbox": {
+        "label": "Turn on welcome content for",
+        "option1": "Power Apps",
+        "option2": "Power Automate cloud flows",
+        "option3": "Power Automate desktop flows",
+        "option4": "Copilot Studio"
+      },
+      "consentCheckbox": {
+        "label": "Include consent button and log maker activity"
+      },
+      "termsField": {
+        "label": "Terms and conditions",
+        "placeholder": "Paste your terms and conditions URL here.",
+        "ariaLabel": "Terms and conditions URL"
+      },
+      "learnMoreTextField": {
+        "label": "Learn more link",
+        "placeholder": "Paste your learn more URL here.",
+        "required": "Terms and conditions URL is required when consent is enabled"
+      },
+      "resetForm": {
+        "text": "Reset form"
+      },
+      "seePreviewLink": {
+        "text": "See preview"
+      }
+    }
+  },
+  "CustomAdminMessages": {
+    "rule": {
+      "name": "Maker guidance message",
+      "description": "Provide a custom message to Copilot Studio makers to let them know of policy restrictions and other important information."
+    },
+    "content": {
+      "description": "Provide a custom message to Copilot Studio makers to let them know of policy restrictions and other important information.",
+      "learnMoreAriaLabel": "Learn more about maker guidance messages",
+      "agentStatus": {
+        "label": "Agent status",
+        "tooltip": "Configure guidance messaging for the Agent status page in Copilot Studio.",
+        "checkbox": "Display guidance messaging when makers select <bold>View</bold> on <bold>Agent status</bold>",
+        "message": {
+          "label": "Your message",
+          "placeholder": "If you're experiencing issues while publishing your agent or require extra features, please contact your administrator for assistance."
+        },
+        "urlName": {
+          "label": "URL name",
+          "tooltip": "Enter the display text for the link button.",
+          "placeholder": "Enter your button link text",
+          "urlNameRequired": "URL name is required when a URL link is provided"
+        },
+        "urlLink": {
+          "label": "URL link",
+          "tooltip": "Enter a valid HTTP(S) URL for the link button.",
+          "placeholder": "https://example.com",
+          "invalidUrl": "Please enter a valid URL"
+        },
+        "contactInfo": {
+          "label": "Contact email",
+          "placeholder": "name@example.com",
+          "invalidEmail": "Please enter a valid email address"
+        },
+        "characters": "characters"
+      }
+    }
+  },
+  "usageInsights": {
+    "rule": {
+      "name": "Usage insights",
+      "description": "Stay informed about what's happening in your environments."
+    },
+    "content": {
+      "description": "Get adoption insights, like top apps and flows, for all Managed Environments in this group",
+      "learnMoreAriaLabel": "Learn more about usage insights",
+      "showInHomepageCheckbox": {
+        "text": "Show insights for all Managed Environments in this group on my admin center homepage"
+      },
+      "includeInEmailDigest": {
+        "text": "Include insights for all Managed Environments in this group in the weekly email digest"
+      },
+      "goToTenantSettings": {
+        "text": "Add additional recipients for the weekly email digest"
+      }
+    }
+  },
+  "sharingControlsForCloudFlows": {
+    "rule": {
+      "name": "Sharing controls for solution-aware cloud flows",
+      "description": "Limit how broadly your resources can be shared."
+    },
+    "content": {
+      "description": "Help reduce risk by limiting how widely canvas apps can be shared.",
+      "choiceGroup": {
+        "name": "Solution-aware cloud flows (preview)",
+        "choices": {
+          "NoLimit": "Don't set limits (default)",
+          "LimitToSecurityGroups": "Only share with security groups",
+          "ExcludeSharingToSecurityGroups": "Exclude sharing with security groups"
+        }
+      },
+      "checkbox": {
+        "label": "Let people share solution-aware cloud flows"
+      }
+    }
+  },
+  "sharingControlsForCopilotStudioCreator": {
+    "rule": {
+      "name": "Sharing agents with Editor permissions",
+      "description": "Choose if people can share agents created in Copilot Studio with Editor permissions.",
+      "panelDescription": "Let owners and editors share agents and give other people in this environment Editor permissions, which lets them edit, share, publish, and use agents made in Copilot Studio. Sharing limits will not apply when the authentication for your agent is set to 'No authentication'. ",
+      "checkboxAriaLabel": "Let people grant Editor permissions when agents are shared",
+      "checkboxDescription": "Let people grant Editor permissions when agents are shared",
+      "checkboxNote": "Note: only people with Editor or Owner permissions can share, and Editor permissions can only be shared with individuals.",
+      "learnMoreAriaLabel": "Learn more about sharing controls for Copilot Studio",
+      "learnMore": "Learn more"
+    }
+  },
+  "sharingControlsForCopilotStudioViewer": {
+    "rule": {
+      "name": "Sharing agents with Viewer permissions",
+      "description": "Choose if people can share agents created in Copilot Studio with Viewer permissions.",
+      "panelDescription": "Let owners and editors share agents and give other people in this environment Viewer permissions, which lets them use agents made in Copilot Studio. Sharing limits will not apply when the authentication for your agent is set to 'No authentication'. ",
+      "checkboxAriaLabel": "Let people grant Viewer permissions when agents are shared",
+      "checkboxDescription": "Let people grant Viewer permissions when agents are shared",
+      "checkboxNote": "Note: only people with Editor or Owner permissions can share, and Viewer permissions can be shared with both individuals and security groups.",
+      "learnMoreAriaLabel": "Learn more about sharing controls for Copilot Studio",
+      "learnMore": "Learn more",
+      "limitSharingToIndividualsCheckbox": "Only share with individuals (no security groups)",
+      "limitNumberOfViewersCheckbox": "Limit the number of viewers who can access each agent",
+      "noLimit": "No limit"
+    }
+  },
+  "sharingControlsForMicrosoftApps": {
+    "rule": {
+      "name": "App sharing links for managed apps",
+      "description": "Limit how broadly managed apps can be shared."
+    },
+    "content": {
+      "description": "Let app creators generate a sharing link that can be opened by anyone in the org, or restrict their sharing to people and groups in the org that they specify.",
+      "learnMoreAriaLabel": "Learn more about app sharing links for managed apps",
+      "appLinksMayBeOpenedByLabel": "App links may be opened by the following users",
+      "simpleAnyoneInOrg": "Anyone in the org",
+      "simpleOnlySelectedUsersAndGroups": "Only the users and groups selected when the app is shared",
+      "allowGuestSharing": "Allow guest users to open apps from shared links",
+      "guestUserAccessLabel": "Guest user access",
+      "anyoneInOrg": "Anyone in the org",
+      "specificPeopleInOrg": "Specific people in the org",
+      "noOneInOrg": "No one else in the org",
+      "allowSharingToSecurityGroups": "Security groups",
+      "allowSharingWithIndividuals": "Users",
+      "limitTotalIndividuals": "Limit sharing to this number of users (optional):",
+      "noLimit": "No limit",
+      "spinButtonAriaLabel": "Limit sharing to this number of users",
+      "incrementButtonAriaLabel": "Increase value by 1",
+      "decrementButtonAriaLabel": "Decrease value by 1"
+    }
+  },
+  "CopilotStudioSafeSharing": {
+    "rule": {
+      "name": "Sharing agents with embedded maker credentials",
+      "description": "Control whether makers can share agents that include their own credentials."
+    },
+    "content": {
+      "CopilotStudioSafeSharingDescription": "Control whether makers can share agents that include their own credentials.",
+      "learnMoreAriaLabel": "Learn more about sharing agents with embedded maker credentials",
+      "CopilotStudioAllowAllSharingLabel": "Let makers share agents with their own credentials embedded",
+      "CopilotStudioAllowAllSharingDescription": "No limitations on credential. May lead to unsafe sharing under makers' UPNs.",
+      "CopilotStudioSafeSharingOnlyLabel": "Don't let makers share agents with their own credentials embedded (recommended)",
+      "CopilotStudioSafeSharingOnlyDescription": "Protects against unsafe sharing under makers' UPNs. Enforces secure credentials for shared agents.",
+      "CopilotStudioUnsafeAgentsWarningDescription1": "If you let makers share agents with their own authentication credentials embedded in the agent,",
+      "CopilotStudioUnsafeAgentsWarningDescription2": "this may result in security and compliance risks."
+    }
+  },
+  "sharingControls": {
+    "rule": {
+      "name": "Sharing",
+      "description": "Help reduce risk by limiting how widely canvas apps can be shared.",
+      "learnMoreAriaLabel": "Learn more about sharing controls for canvas apps"
+    },
+    "content": {
+      "canvasApps": {
+        "name": "Canvas apps",
+        "description": "Control who canvas apps can be shared with to help keep your data secure.",
+        "limitSharingToLabel": "Limit sharing to:",
+        "onlyIndividualsLabel": "Only individuals",
+        "maximumNumberDescription": "Maximum number of people who can access each app:",
+        "toggleAriaLabel": "Enable sharing rules for canvas apps",
+        "toggleOnText": "Enabled",
+        "toggleOffText": "Disabled"
+      },
+      "cloudFlows": {
+        "name": "Cloud Flows (preview)",
+        "description": "Allow solution-aware cloud flows to be shared.",
+        "toggleAriaLabel": "Enable sharing rules for cloud flows",
+        "toggleOnText": "Enabled",
+        "toggleOffText": "Disabled"
+      }
+    }
+  },
+  "solutionChecker": {
+    "rule": {
+      "name": "Solution checker enforcement",
+      "description": "Automatically verify solution checker results for security and reliability issues."
+    },
+    "content": {
+      "description": "Automatically verify solution checker results for security and reliability issues before solution import.",
+      "learnMoreAriaLabel": "Learn more about solution checker",
+      "modeSlider": {
+        "ariaLabel": "Solution checker slider",
+        "options": {
+          "none": {
+            "label": "None",
+            "description": "Turn off solution checker verification during solution import. You can continue to manually review the results in the solution explorer."
+          },
+          "warn": {
+            "label": "Warn",
+            "description": "Check for security and reliability issues in the solution checker results, but do not block solution import for any issues."
+          },
+          "block": {
+            "label": "Block",
+            "description": "Check for security and reliability issues in the solution checker results and block the solution from being imported if critical issues are found."
+          }
+        }
+      },
+      "suppressValidationEmailsCheckbox": {
+        "label": "Send emails only when a solution is blocked. If unchecked, you'll also get emails when there are warnings."
+      },
+      "excludedRulesField": {
+        "label": "Excluded Rules",
+        "placeholder": "Select Solution Checker rules to exclude from enforcement.",
+        "fetchRulesErrorMessage": "Failed to get Solution Checker Rules"
+      },
+      "rule": {
+        "severity": {
+          "unknown": "Unknown",
+          "informational": "Informational",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "critical": "Critical"
+        },
+        "category": {
+          "none": "None",
+          "performance": "Performance",
+          "upgradeReadiness": "Upgrade Readiness",
+          "licensing": "Licensing",
+          "usage": "Usage",
+          "security": "Security",
+          "design": "Design",
+          "onlineMigration": "Online Migration",
+          "maintainability": "Maintainability",
+          "supportability": "Supportability",
+          "accessibility": "Accessibility"
+        }
+      }
+    }
+  },
+  "retentionPeriod": {
+    "rule": {
+      "name": "Backup retention",
+      "panelHeaderText": "Backup retention for production environments without Dynamics 365 apps",
+      "description": "Configure environment backup retention period"
+    },
+    "content": {
+      "learnMore": {
+        "linkText": "Learn more",
+        "ariaLabel": "Learn more about Back up and restore environments"
+      },
+      "description": "Backup retention helps protect data for a longer period and you can restore it in case of any loss or damage. \nCreate backup policies for your managed production environments that don't have Dynamics 365 applications enabled and default backup retention is only seven days.",
+      "choiceGroup": {
+        "name": "Backup duration",
+        "choices": {
+          "7Days": "7 Days (Default)",
+          "14Days": "14 Days",
+          "21Days": "21 Days",
+          "28Days": "28 Days"
+        }
+      },
+      "environmentRetentionPeriods": {
+        "text": "All other environments are not impacted by this policy and will be backed up as follows:",
+        "environmentType": {
+          "text": "Environment Type",
+          "type": {
+            "Production": "Production (Dynamics 365)",
+            "Sandbox": "Sandbox",
+            "Developer": "Developer",
+            "Teams": "Teams",
+            "Default": "Default"
+          }
+        },
+        "backupUpFor": {
+          "text": "Back up for",
+          "days": {
+            "28Days": "28 Days",
+            "7Days": "7 Days"
+          }
+        }
+      }
+    }
+  },
+  "sharingControlsForCanvasApps": {
+    "rule": {
+      "name": "Sharing controls for canvas apps",
+      "description": "Limit how broadly your resources can be shared."
+    },
+    "content": {
+      "description": "Help reduce risk by limiting how widely canvas apps can be shared.",
+      "learnMoreAriaLabel": "Learn more about sharing controls for canvas apps",
+      "choiceGroup": {
+        "name": "Solution-aware cloud flows (preview)",
+        "choices": {
+          "NoLimit": "Don't set limits (default)",
+          "ExcludeSharingToSecurityGroups": "Exclude sharing with security groups"
+        }
+      },
+      "limitTotalIndividuals": "Limit total individuals who can be shared to",
+      "noLimit": "No limit"
+    }
+  },
+  "ConnectorManagement": {
+    "rule": {
+      "name": "Advanced connector policies",
+      "description": "Choose which certified connectors, actions, triggers, and MCP servers to allow."
+    },
+    "content": {
+      "defaultDescription": "By default, new connectors will be blocked until they are added to the allow list below.",
+      "learnMoreAriaLabel": "Learn more about advanced DLP connector management.",
+      "saveConfirmationDialog": {
+        "title": "Confirm advanced connector policy",
+        "allowedSummary": "A total of {{count}} connector is on the allow list.",
+        "allowedSummary_plural": "A total of {{count}} connectors are on the allow list.",
+        "blockedSummaryForGroup": "The remaining {{count}} connector will be blocked for all environments in this group.",
+        "blockedSummaryForGroup_plural": "The remaining {{count}} connectors will be blocked for all environments in this group.",
+        "blockedSummaryForEnvironment": "The remaining {{count}} connector will be blocked for this environment.",
+        "blockedSummaryForEnvironment_plural": "The remaining {{count}} connectors will be blocked for this environment.",
+        "confirmButton": "Save",
+        "cancelButton": "Cancel"
+      },
+      "allowList": {
+        "title": "Allow list",
+        "allowed": "Allowed ({{count}})",
+        "blocked": "Blocked ({{count}})",
+        "blockedLoading": "Blocked (...)",
+        "removalConfirmationOne": "{{connectorName}} is staged for removal. Save to publish this policy change.",
+        "removalConfirmationMany": "{{count}} connectors are staged for removal. Save to publish these policy changes.",
+        "removalConfirmationDismiss": "Dismiss",
+        "commandBar": {
+          "addConnectors": "Add connectors",
+          "getInfo": "Get info",
+          "editActions": "Edit actions",
+          "connectionParameters": "Connection parameters",
+          "removeConnector": "Remove connector",
+          "simulate": "Simulate"
+        },
+        "columns": {
+          "name": "Name",
+          "actions": "Actions",
+          "publisher": "Publisher",
+          "defaultBadge": "Default",
+          "about": {
+            "title": "About",
+            "learnAbout": "Learn about {{connectorName}}",
+            "learnAboutPrivateConnectors": "Learn about private connectors"
+          },
+          "actionColumn": {
+            "allActions": "All actions",
+            "partialActions": "{{configuredActions}} of {{totalActions}} actions"
+          }
+        },
+        "emptyState": {
+          "title": "Start your allowed list of connectors"
+        },
+        "emptyResults": {
+          "primaryMessage": "No results",
+          "secondaryMessage": "Oops something happened. Cancel this and try again."
+        },
+        "messageBar": {
+          "unlockFeature": {
+            "title": "Unlock all features",
+            "description": "Default connectors can only be blocked if this environment is managed.",
+            "action": "Turn on Managed Environments"
+          },
+          "missingDefaultConnectors": "The following default connector must be added before saving: {{connectorNames}}",
+          "missingDefaultConnectors_plural": "The following default connectors must be added before saving: {{connectorNames}}",
+          "featureUnlocked": {
+            "description": "Environment management is on for this environment. Start using the new features available to you.",
+            "action": "View new features"
+          }
+        },
+        "upsellSubmitButtonText": "Continue",
+        "upsellDescription": "Enable Managed Environments for the following environment:"
+      },
+      "connectorCatalog": {
+        "title": "Add connector from catalog",
+        "filterTitle": "Browse by category",
+        "clearFilters": "Clear filters",
+        "searchPlaceholder": "Search connectors",
+        "columns": {
+          "icon": "Icon",
+          "name": "Name",
+          "publisher": "Publisher",
+          "actions": "Actions"
+        },
+        "filterMenu": {
+          "header": "Filter connectors",
+          "categories": {
+            "standard": "Standard",
+            "premium": "Premium",
+            "preview": "Preview",
+            "production": "Production",
+            "powerApps": "Power Apps",
+            "powerAutomate": "Power Automate",
+            "microsoftPublished": "Microsoft published"
+          }
+        },
+        "emptyResults": {
+          "primaryMessage": "No results",
+          "secondaryMessage": "Oops something happened. Cancel this and try again."
+        },
+        "noSearchResults": {
+          "primaryMessage": "No results found",
+          "secondaryMessage": "Try searching with different keywords."
+        }
+      },
+      "connectorActions": {
+        "title": "Connector actions",
+        "iconAltText": "Current connector icon",
+        "buttons": {
+          "back": "Back to Allow list"
+        },
+        "defaultConnectionActionSetting": "Default connection action settings",
+        "allowActions": "Allow new connectors actions",
+        "blockActions": "Block new connectors actions",
+        "noActionsSelectedWarning": "You must allow at least one action to save.  If you wish to block all actions, please block the whole connector.",
+        "columns": {
+          "action": "Action",
+          "allowed": "Allowed"
+        },
+        "actionTags": {
+          "deprecated": "DEPRECATED",
+          "trigger": "TRIGGER",
+          "internal": "INTERNAL"
+        },
+        "toggleAriaLabel": "Toggle allowed state for {{name}}"
+      },
+      "connectionParameters": {
+        "title": "Connection parameter filtering",
+        "iconAltText": "Current connector icon",
+        "buttons": {
+          "back": "Back to Allow list"
+        },
+        "connectionTypesAllowed": "Connection types allowed",
+        "noConnectionTypesWarning": "You must allow at least one connection type.",
+        "noTypesAvailable": "This connector does not support multiple connection types.",
+        "toggleAriaLabel": "Toggle allowed state for {{name}}",
+        "columns": {
+          "connectionType": "Connection type",
+          "allowed": "Allowed"
+        }
+      }
+    }
+  },
+  "DefaultPipeline": {
+    "rule": {
+      "name": "Default deployment pipeline",
+      "description": "Link development environments in this group to a specified pipeline for deployment."
+    },
+    "content": {
+      "defaultTeamSharingAlert": "This pipeline will be shared with the Default team for all development environments in this group.  %(helpLink)",
+      "defaultManagedEnvironmentAlert": "Target environments in this default pipeline will be enabled for Managed Environment if not already managed.  %(helpLink)",
+      "learnMoreManagedEnvironments": {
+        "linkText": "Learn more",
+        "ariaLabel": "Learn more about managed environments."
+      },
+      "learnMore": {
+        "linkText": "Learn more",
+        "ariaLabel": "Learn more about Sharing within pipelines."
+      },
+      "pipelineHostLabel": "Pipeline Host",
+      "selectPipelineHost": "Select a pipelines host.",
+      "loadingPipelineHosts": "Loading pipelines hosts...",
+      "pipelineLabel": "Pipeline",
+      "selectPipeline": "Select a pipeline.",
+      "loadingPipelines": "Loading pipelines...",
+      "noPipelineHosts": "No pipeline hosts available",
+      "managePipelines": {
+        "linkText": "Create and manage Pipelines",
+        "ariaLabel": "Create and manage Pipelines"
+      }
+    }
+  },
+  "CanvasAppsCodeComponents": {
+    "rule": {
+      "name": "Power Apps component framework for canvas apps",
+      "description": "Enables Power Apps component framework feature that allows the execution of code that may not be generated by Microsoft when a maker adds code components to an app. Make sure that the code component solution is from a trusted source."
+    },
+    "content": {
+      "description": "Enables Power Apps component framework feature that allows the execution of code that may not be generated by Microsoft when a maker adds code components to an app. Make sure that the code component solution is from a trusted source.",
+      "isCustomControlsInCanvasAppsEnabled": {
+        "text": "Allow publishing of canvas apps with code components"
+      }
+    }
+  },
+  "BlockUnmanagedCustomization": {
+    "rule": {
+      "name": "Unmanaged customizations",
+      "description": "Dataverse will block unmanaged customizations in the environment. Select Learn more to review known limitations."
+    },
+    "content": {
+      "isLockdownOfUnmanagedCustomizationEnabled": {
+        "text": "Dataverse will block unmanaged customizations in the environment. Select Learn more to review known limitations."
+      }
+    }
+  },
+  "CopilotFeaturesForMakers": {
+    "rule": {
+      "name": "AI-powered Copilot features (preview)",
+      "description": "Enable new AI-powered Copilot features for people who make apps."
+    },
+    "content": {
+      "isCopilotFeaturesForMakersEnabled": {
+        "text": "Enable new AI-powered Copilot features for people who make apps."
+      }
+    }
+  },
+  "CopilotEnablePrompts": {
+    "rule": {
+      "name": "AI prompts",
+      "description": "Enable the AI prompts feature in Power Platform and Copilot Studio"
+    },
+    "content": {
+      "isCopilotEnablePromptsEnabled": {
+        "text": "Enable the AI prompts feature in Power Platform and Copilot Studio"
+      }
+    }
+  },
+  "AdvancedConnectorPoliciesOnly": {
+    "rule": {
+      "name": "Advanced connector policies only (preview)",
+      "description": "Use advanced connector policy instead of existing data policies."
+    },
+    "content": {
+      "description": "Use advanced connector policy instead of existing data policies.",
+      "checkboxLabel": "Enabling this checkbox will turn off any data policy evaluation for the environment(s) in scope. Only connectors and actions which are allowed in advanced connector policy will be able to be used across apps, flows, and agents. Changes can take up to 24 hours to take effect.",
+      "learnMoreAriaLabel": "Learn more about advanced connector policies only"
+    }
+  },
+  "ReleaseChannel": {
+    "rule": {
+      "name": "Release channel",
+      "panelHeaderText": "Model-driven app release channel",
+      "description": "Choose the release channel cadence for your model-driven apps features."
+    },
+    "content": {
+      "learnMoreAriaLabel": "Learn more about release channels",
+      "choiceGroupLabel": "Release Channel",
+      "choiceGroup": {
+        "choices": {
+          "auto": "Auto",
+          "monthly": "Monthly Channel",
+          "inner": "Microsoft Inner Channel",
+          "semiannual": "Semi-annual Channel"
+        }
+      }
+    }
+  },
+  "CopilotStudioAgentAuthenticationSettings": {
+    "rule": {
+      "name": "Authentication for agents (preview)",
+      "description": "Decide if someone can chat with copilots without Microsoft Entra ID authentication."
+    }
+  },
+  "EnableIPCookieBinding": {
+    "rule": {
+      "name": "Enable IP Cookie Binding",
+      "description": "IP address-based cookie binding helps prevent unauthorized access to content in Dataverse."
+    }
+  },
+  "EnableMIP": {
+    "rule": {
+      "name": "Sync sensitivity label data from Microsoft Purview",
+      "description": "Enable MIP sensitivity label sync from Purview Data Map."
+    }
+  },
+  "IPFirewallSettings": {
+    "rule": {
+      "name": "IP Firewall setting",
+      "description": "Set IP firewall rules."
+    }
+  },
+  "CopilotStudioSkillsControlSettings": {
+    "rule": {
+      "name": "Skills in Copilot Studio",
+      "description": "Let makers add skills in agents built in Copilot Studio",
+      "learnMoreAriaLabel": "Learn more about skills control"
+    }
+  },
+  "ApplicationInsightsControlSettings": {
+    "rule": {
+      "name": "Application Insights in Copilot Studio",
+      "description": "Control whether agents automatically send telemetry into an Application Insights resource."
+    },
+    "content": {
+      "description": "Control whether agents automatically send telemetry into an Application Insights resource.",
+      "learnMoreAriaLabel": "Learn more about Application Insights in Copilot Studio.",
+      "allowAppInsights": "Allow application insights logs in Copilot Studio."
+    }
+  },
+  "CopilotGsaSettings": {
+    "rule": {
+      "name": "Copilot GSA Settings",
+      "description": "Copilot GSA Settings."
+    }
+  },
+  "CopilotSecurityWebhookSettings": {
+    "rule": {
+      "name": "Additional threat detection and protection for Copilot Studio agents (preview)",
+      "description": "Runtime Protection - Add an extra layer of real-time threat defense to protect your agents. Integrate monitoring solutions, other security platforms, or custom tools to block potential threats like prompt injection attacks during agent runtime."
+    }
+  },
+  "CopilotChannelPublishSettings": {
+    "rule": {
+      "name": "Agent access channels (preview)",
+      "description": "Control the channels where someone can access and use agents published from Copilot Studio."
+    }
+  },
+  "AIBuilder": {
+    "rule": {
+      "name": "Preview and experimental AI models",
+      "description": "Let people use AI models that are experimental or in preview to make agents, prompts, apps, flows, and more in Copilot Studio, Power Apps, and Power Automate. "
+    },
+    "content": {
+      "learnMoreAriaLabel": "Learn more about preview and experimental AI models"
+    }
+  },
+  "aiSuggestionForFormulaColumn": {
+    "rule": {
+      "name": "AI suggestions for formula columns (preview)",
+      "description": "Allow users to get AI suggestions when creating formula columns. Currently in preview."
+    },
+    "content": {
+      "learnMoreAriaLabel": "Learn more about AI suggestions for formula columns"
+    }
+  },
+  "CopilotTranscripts": {
+    "rule": {
+      "name": "Accessing transcripts from conversations in Copilot Studio agents",
+      "description": "Transcripts gathered from conversations with agents made in Copilot Studio may include sensitive or personally identifiable information (PII), and exposing them to everyone with access to the data may open security risks."
+    },
+    "content": {
+      "blockAccessToSessionTranscriptsForCopilotStudioCheckbox": {
+        "text": "Allow agent owners and editors to see session transcripts from conversation interactions in their agents."
+      },
+      "blockTranscriptRecordingForCopilotStudioCheckbox": {
+        "text": "Allow conversation transcripts and their associated metadata to be saved in Dataverse (required for enhanced reporting)."
+      },
+      "learnMoreAriaLabel": "Learn more about Copilot transcripts"
+    }
+  },
+  "CopilotAuthorAuth": {
+    "rule": {
+      "namePreview": "Control maker credential options (preview)",
+      "name": "Control maker credential options (preview)",
+      "description": "By default, end users’ own credentials are used to sign into agent processes like connectors and actions. For more seamless operation, you can allow makers to provide credentials instead. In this case, makers should ensure the credentials include only the permissions that are OK to share. "
+    },
+    "content": {
+      "learnMoreAriaLabel": "Learn more about maker access",
+      "comboBoxText": "Let makers allow people who use their agents to use:",
+      "endUsersCredentialsCheckbox": {
+        "text": "End-user credentials (default)"
+      },
+      "makersCredentialsCheckbox": {
+        "text": "Maker-provided credentials"
+      }
+    }
+  },
+  "CopilotAgentResponse": {
+    "rule": {
+      "name": "Showing Images And URLs",
+      "description": "Control whether agent responses can display images and URLs. "
+    },
+    "content": {
+      "learnMoreAriaLabel": "Learn more about copilot Agent Response",
+      "blockImagesAndUrlsRadioButton": {
+        "text": "Block all images and other URLs"
+      },
+      "blockUntrustedImagesAndUrlsRadioButton": {
+        "text": "Block untrusted images and URLs"
+      },
+      "allowImagesAndUrlsRadioButton": {
+        "text": "Allow images and URLs"
+      },
+      "description": "Control whether agent responses can display images and URLs. Images and links can be a security risk because attackers can use them as a prompt injection channel to leak sensitive information."
+    }
+  },
+  "CopilotVivaInsightsIntegration": {
+    "rule": {
+      "name": "Sharing Copilot Studio agent data with Viva Insights",
+      "description": "Copilot Studio integrates with Microsoft Viva Insights on the tenant level. It provides customers an aggregated view of agent use and impact, based on agent data shared with Viva Insights. "
+    },
+    "content": {
+      "enableCopilotStudioShareDataWithVivaInsights": {
+        "text": "Allow Copilot Studio to share data with Viva Insights"
+      },
+      "enableCopilotStudioCrossGeoShareDataWithVivaInsights": {
+        "text": "Allow cross-geo boundary sharing of aggregated analytics data if your tenant preferred data location for Viva Insights is different than the location of your Copilot Studio environment"
+      },
+      "learnMoreAriaLabel": "Learn more about sharing Copilot Studio agent data with Viva Insights"
+    }
+  },
+  "PowerAppsFormFill": {
+    "rule": {
+      "name": "AI form fill assistance",
+      "description": "AI will generate form fill suggestions for model-driven apps."
+    },
+    "content": {
+      "PowerApps_FormPredictAutomatic": {
+        "text": ""
+      },
+      "": {
+        "text": ""
+      },
+      "learnMoreAriaLabel": ""
+    }
+  },
+  "EnvironmentGroupRegion": {
+    "rule": {
+      "name": "Require new environments to be in one region",
+      "description": "Require all newly provisioned environments in this group to be in the selected region."
+    },
+    "description": "Require all newly provisioned environments in this group to be in the selected region. Previously created environments in other regions can still be added to the group.",
+    "learnMoreAriaLabel": "Learn more about environment region configuration",
+    "enableCheckbox": {
+      "label": "Require new environments be in one region",
+      "ariaLabel": "Enable region restriction for new environments"
+    },
+    "regionDropdown": {
+      "label": "Region",
+      "placeholder": "Select a region",
+      "ariaLabel": "Select region for new environments",
+      "helpText": "A local region can provide quicker data access."
+    },
+    "loadingRegions": "Loading regions..."
+  },
+  "CopilotStudioPrivacyDisclosureMessageUrl": {
+    "rule": {
+      "name": "Privacy statement link",
+      "description": "Allow custom link to appear at the start of agent conversations."
+    },
+    "content": {
+      "learnMoreAriaLabel": "Learn more about privacy disclosure message settings",
+      "checkboxLabel": "Show privacy link to end users",
+      "messageShownLabel": "Message shown to users",
+      "staticMessage": "For details about how your data is handled, please review our privacy policy here:",
+      "staticMessageNote": "This message can't be edited in this release",
+      "urlLabel": "Privacy policy URL",
+      "urlPlaceholder": "Link to an existing file or webpage",
+      "urlAriaLabel": "Privacy policy URL",
+      "urlHelperText": "Use a valid URL. This link is shown to end users",
+      "urlRequired": "Privacy policy URL is required.",
+      "urlTooLong": "URL must be {{maxLength}} characters or fewer.",
+      "urlInvalid": "Please enter a valid URL (e.g. https://contoso.com)."
+    }
+  },
+  "knowledgeSourcesControlSettings": {
+    "rule": {
+      "name": "Knowledge sources for agents",
+      "description": "Manage the types of information your makers can use as knowledge sources for the agents they build in Copilot Studio.",
+      "learnMoreAriaLabel": "Learn more about knowledge sources."
+    }
+  },
+  "skillsControlSettings": {
+    "rule": {
+      "name": "Skills for agents",
+      "description": "Choose which types of skills agents can reference.",
+      "learnMoreAriaLabel": "Learn more about skills control"
+    }
+  }
+}

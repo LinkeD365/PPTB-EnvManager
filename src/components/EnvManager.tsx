@@ -121,6 +121,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
   const [envApiEnvironmentId, setEnvApiEnvironmentId] = React.useState<string>("");
   const [secondaryEnvApiEnvironmentId, setSecondaryEnvApiEnvironmentId] = React.useState<string>("");
   const [envApiInfoLookup, setEnvApiInfoLookup] = React.useState<Map<string, EnvApiInfoItem>>(new Map());
+  const envApiInfoLookupRef = React.useRef(envApiInfoLookup);
   const [selectedEnvironmentGroups, setSelectedEnvironmentGroups] = React.useState<EnvironmentGroupRow[]>([]);
   const envGroupStatsRef = React.useRef(envGroupStats);
 
@@ -281,6 +282,10 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
   }, [envGroupStats]);
 
   React.useEffect(() => {
+    envApiInfoLookupRef.current = envApiInfoLookup;
+  }, [envApiInfoLookup]);
+
+  React.useEffect(() => {
     let cancelled = false;
 
     const loadEnvApiInfo = async () => {
@@ -365,9 +370,7 @@ export const EnvManager = observer((props: EnvManagerProps): React.JSX.Element =
           setEnvApiSecondaryLoaded(false);
         }
 
-        if (envApiInfoLookup.size > 0) {
-          gridRows = attachEnvApiInfo(gridRows, envApiInfoLookup);
-        }
+        gridRows = attachEnvApiInfo(gridRows, envApiInfoLookupRef.current);
 
         setEnvApiRows(gridRows);
         setEnvApiError(null);
