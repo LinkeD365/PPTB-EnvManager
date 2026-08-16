@@ -36,6 +36,8 @@ interface PolicyCompareRow {
   newValue1: string;
   newValue2: string;
   edit: boolean;
+  edit1: boolean;
+  edit2: boolean;
   editable1: boolean;
   editable2: boolean;
   valueType1: "boolean" | "number" | "text";
@@ -89,6 +91,8 @@ function buildPolicyCompareRows(
           newValue1: index === 0 ? value : "",
           newValue2: index === 1 ? value : "",
           edit: false,
+          edit1: false,
+          edit2: false,
           editable1: index === 0 ? editable : false,
           editable2: index === 1 ? editable : false,
           valueType1: index === 0 ? valueType : "text",
@@ -142,11 +146,36 @@ function buildPolicyCompareRows(
   });
 }
 
+function coerceApiValue(newValue: string, valueType?: "boolean" | "number" | "text"): string | number | boolean {
+  if (valueType === "boolean") {
+    const normalized = newValue.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") {
+      return true;
+    }
+    if (normalized === "false" || normalized === "0") {
+      return false;
+    }
+    return Boolean(newValue);
+  }
+
+  if (valueType === "number") {
+    if (newValue.trim() === "") {
+      return "";
+    }
+
+    const parsed = Number(newValue);
+    return Number.isFinite(parsed) ? parsed : newValue;
+  }
+
+  return newValue;
+}
+
 function applyRuleSetValueUpdate(
   ruleSet: Record<string, unknown>,
   parameterType: string,
   propertyName: string,
-  newValue: string
+  newValue: string,
+  valueType?: "boolean" | "number" | "text"
 ): Record<string, unknown> {
   const ruleSetClone = JSON.parse(JSON.stringify(ruleSet)) as Record<string, unknown>;
   const parameters = Array.isArray(ruleSetClone.parameters) ? (ruleSetClone.parameters as Record<string, unknown>[]) : [];
@@ -174,10 +203,12 @@ function applyRuleSetValueUpdate(
     (candidate) => candidate && typeof candidate === "object" && String((candidate as Record<string, unknown>).id ?? "").toLowerCase() === propertyName.toLowerCase()
   ) as Record<string, unknown> | undefined;
 
+  const coercedValue = coerceApiValue(newValue, valueType);
+
   if (target) {
-    target.value = newValue;
+    target.value = coercedValue;
   } else {
-    values.push({ id: propertyName, value: newValue });
+    values.push({ id: propertyName, value: coercedValue });
   }
 
   return ruleSetClone;
@@ -187,7 +218,8 @@ function applyPolicyInputUpdate(
   policy: Record<string, unknown>,
   ruleSetIndex: number,
   inputKey: string,
-  newValue: string
+  newValue: string,
+  valueType?: "boolean" | "number" | "text"
 ): Record<string, unknown> {
   const policyClone = JSON.parse(JSON.stringify(policy)) as Record<string, unknown>;
   const ruleSets = policyClone.ruleSets;
@@ -196,7 +228,7 @@ function applyPolicyInputUpdate(
     const ruleSet = ruleSets[ruleSetIndex] as Record<string, unknown> | undefined;
     const inputs = ruleSet?.inputs;
     if (ruleSet && inputs && typeof inputs === "object") {
-      (inputs as Record<string, unknown>)[inputKey] = newValue;
+      (inputs as Record<string, unknown>)[inputKey] = coerceApiValue(newValue, valueType);
     }
   }
 
@@ -276,11 +308,22 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
 
   const setRowEdit = React.useCallback((rowKey: string, edit: boolean) => {
     setRows((prev) =>
-      prev.map((row) =>
-        row.rowKey === rowKey
-          ? { ...row, edit, newValue1: row.value1, newValue2: row.value2 ?? "" }
-          : row
-      )
+      prev.map((row) => {
+        if (row.rowKey !== rowKey) {
+          return row;
+        }
+
+        const nextRow = {
+          ...row,
+          edit1: row.editable1 ? edit : false,
+          edit2: row.editable2 ? edit : false,
+          edit,
+          newValue1: row.editable1 && edit ? row.value1 : row.newValue1,
+          newValue2: row.editable2 && edit ? (row.value2 ?? "") : row.newValue2,
+        };
+
+        return nextRow;
+      })
     );
   }, []);
 
@@ -299,7 +342,8 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
   const handleSave = React.useCallback(
     async (columnIndex: 0 | 1) => {
       const editedRows = rows.filter((row) => {
-        if (!row.edit) {
+        const isEditingColumn = columnIndex === 0 ? row.edit1 : row.edit2;
+        if (!isEditingColumn) {
           return false;
         }
 
@@ -314,8 +358,28 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
       });
 
       if (editedRows.length === 0) {
+        console.log("[PoliciesGrid] save skipped: no changed editable rows", { columnIndex });
+        window.toolboxAPI.utils.showNotification({
+          title: "No policy changes to save",
+          body: "No environment group policy values have been modified.",
+          type: "info",
+          duration: 3000,
+        });
         return;
       }
+
+      const saveStartedAt = Date.now();
+      console.log("[PoliciesGrid] starting policy save", {
+        columnIndex,
+        groupNames,
+        editedRows: editedRows.map((row) => ({
+          rowKey: row.rowKey,
+          ruleSetId: row.ruleSetId,
+          currentValue: columnIndex === 0 ? row.value1 : row.value2 ?? "",
+          newValue: columnIndex === 0 ? row.newValue1 : row.newValue2,
+          updateKind: (columnIndex === 0 ? row.updateContext1 : row.updateContext2)?.kind,
+        })),
+      });
 
       setSavingColumn((prev) => ({ ...prev, [columnIndex]: true }));
       setSaveError(null);
@@ -323,25 +387,26 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
       try {
         const ruleSetEditsByRuleSetId = new Map<
           string,
-          { context: Extract<PolicyRowUpdateContext, { kind: "ruleSet" }>; edits: Array<{ parameterType: string; propertyName: string; value: string }> }
+          { context: Extract<PolicyRowUpdateContext, { kind: "ruleSet" }>; edits: Array<{ parameterType: string; propertyName: string; value: string; valueType: "boolean" | "number" | "text" }> }
         >();
         const policyEditsByPolicyId = new Map<
           string,
-          { context: Extract<PolicyRowUpdateContext, { kind: "ruleBasedPolicy" }>; edits: Array<{ ruleSetIndex: number; inputKey: string; value: string }> }
+          { context: Extract<PolicyRowUpdateContext, { kind: "ruleBasedPolicy" }>; edits: Array<{ ruleSetIndex: number; inputKey: string; value: string; valueType: "boolean" | "number" | "text" }> }
         >();
 
         editedRows.forEach((row) => {
           const context = (columnIndex === 0 ? row.updateContext1 : row.updateContext2)!;
           const newValue = columnIndex === 0 ? row.newValue1 : row.newValue2;
+          const valueType = columnIndex === 0 ? row.valueType1 : row.valueType2;
 
           if (context.kind === "ruleSet") {
             const existing = ruleSetEditsByRuleSetId.get(context.ruleSetId);
             if (existing) {
-              existing.edits.push({ parameterType: context.parameterType, propertyName: context.propertyName, value: newValue });
+              existing.edits.push({ parameterType: context.parameterType, propertyName: context.propertyName, value: newValue, valueType });
             } else {
               ruleSetEditsByRuleSetId.set(context.ruleSetId, {
                 context,
-                edits: [{ parameterType: context.parameterType, propertyName: context.propertyName, value: newValue }],
+                edits: [{ parameterType: context.parameterType, propertyName: context.propertyName, value: newValue, valueType }],
               });
             }
             return;
@@ -349,24 +414,42 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
 
           const existing = policyEditsByPolicyId.get(context.policyId);
           if (existing) {
-            existing.edits.push({ ruleSetIndex: context.ruleSetIndex, inputKey: context.inputKey, value: newValue });
+            existing.edits.push({ ruleSetIndex: context.ruleSetIndex, inputKey: context.inputKey, value: newValue, valueType });
           } else {
             policyEditsByPolicyId.set(context.policyId, {
               context,
-              edits: [{ ruleSetIndex: context.ruleSetIndex, inputKey: context.inputKey, value: newValue }],
+              edits: [{ ruleSetIndex: context.ruleSetIndex, inputKey: context.inputKey, value: newValue, valueType }],
             });
           }
+        });
+
+        console.log("[PoliciesGrid] grouped policy save operations", {
+          columnIndex,
+          ruleSetUpdates: Array.from(ruleSetEditsByRuleSetId, ([ruleSetId, entry]) => ({
+            ruleSetId,
+            edits: entry.edits,
+          })),
+          ruleBasedPolicyUpdates: Array.from(policyEditsByPolicyId, ([policyId, entry]) => ({
+            policyId,
+            edits: entry.edits,
+          })),
         });
 
         for (const [ruleSetId, { context, edits }] of ruleSetEditsByRuleSetId) {
           let ruleSetPayload = context.ruleSet;
           edits.forEach((edit) => {
-            ruleSetPayload = applyRuleSetValueUpdate(ruleSetPayload, edit.parameterType, edit.propertyName, edit.value);
+            ruleSetPayload = applyRuleSetValueUpdate(ruleSetPayload, edit.parameterType, edit.propertyName, edit.value, edit.valueType);
           });
 
+          console.log("[PoliciesGrid] sending rule set update", {
+            ruleSetId,
+            edits,
+            parameterCount: Array.isArray(ruleSetPayload.parameters) ? ruleSetPayload.parameters.length : 0,
+          });
           const response = await environmentManagement.updateRuleSet(ruleSetId, ruleSetPayload, {
             connectionTarget: "primary",
           });
+          console.log("[PoliciesGrid] rule set update response", { ruleSetId, response });
           const responseObj = response as { errors?: { message?: string } | null; responseMessage?: string };
           if (responseObj.errors || responseObj.responseMessage) {
             throw new Error(responseObj.errors?.message ?? responseObj.responseMessage ?? "Unknown API error");
@@ -377,7 +460,7 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
           let policyPayload = context.policy;
           const touchedRuleSetIndices = new Set<number>();
           edits.forEach((edit) => {
-            policyPayload = applyPolicyInputUpdate(policyPayload, edit.ruleSetIndex, edit.inputKey, edit.value);
+            policyPayload = applyPolicyInputUpdate(policyPayload, edit.ruleSetIndex, edit.inputKey, edit.value, edit.valueType);
             touchedRuleSetIndices.add(edit.ruleSetIndex);
           });
 
@@ -387,16 +470,45 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
             .map((ruleSetIndex) => ruleSetsArray[ruleSetIndex])
             .filter((ruleSet): ruleSet is Record<string, unknown> => Boolean(ruleSet));
 
+          console.log("[PoliciesGrid] sending rule-based policy update", {
+            policyId,
+            edits,
+            touchedRuleSetIndices: Array.from(touchedRuleSetIndices).sort((left, right) => left - right),
+            ruleSetCount: ruleSetsToSend.length,
+          });
+          const policyUpdatePayload = {
+            ...(context.policy ?? {}),
+            id: context.policy.id ?? policyId,
+            name: context.policy.name ?? context.policy.displayName ?? context.policy.title ?? policyId,
+            ruleSets: ruleSetsToSend,
+          } as Record<string, unknown>;
+
           const response = await environmentManagement.updateRuleBasedPolicy(
             policyId,
-            { ruleSets: ruleSetsToSend },
+            policyUpdatePayload as { id?: string; name?: string; ruleSets: Array<Record<string, unknown>> },
             { connectionTarget: "primary" }
           );
+          console.log("[PoliciesGrid] rule-based policy update response", { policyId, response });
           const responseObj = response as { errors?: { message?: string } | null; responseMessage?: string };
           if (responseObj.errors || responseObj.responseMessage) {
             throw new Error(responseObj.errors?.message ?? responseObj.responseMessage ?? "Unknown API error");
           }
         }
+
+        console.log("[PoliciesGrid] policy save completed", {
+          columnIndex,
+          durationMs: Date.now() - saveStartedAt,
+          ruleSetUpdateCount: ruleSetEditsByRuleSetId.size,
+          ruleBasedPolicyUpdateCount: policyEditsByPolicyId.size,
+        });
+
+        const updateCount = ruleSetEditsByRuleSetId.size + policyEditsByPolicyId.size;
+        window.toolboxAPI.utils.showNotification({
+          title: "Policy changes saved",
+          body: `Saved ${updateCount} rule update(s).`,
+          type: "success",
+          duration: 3000,
+        });
 
         setRows((prev) =>
           prev.map((row) => {
@@ -417,7 +529,19 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
           })
         );
       } catch (err) {
-        setSaveError(String(err));
+        const message = String(err);
+        console.error("[PoliciesGrid] policy save failed", {
+          columnIndex,
+          durationMs: Date.now() - saveStartedAt,
+          error: err,
+        });
+        setSaveError(message);
+        window.toolboxAPI.utils.showNotification({
+          title: "Failed to save policy changes",
+          body: message,
+          type: "error",
+          duration: 4000,
+        });
       } finally {
         setSavingColumn((prev) => ({ ...prev, [columnIndex]: false }));
       }
@@ -430,8 +554,9 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
       const editable = columnIndex === 0 ? row.editable1 : row.editable2;
       const value = columnIndex === 0 ? row.newValue1 : row.newValue2;
       const valueType = columnIndex === 0 ? row.valueType1 : row.valueType2;
+      const isEditingColumn = columnIndex === 0 ? row.edit1 : row.edit2;
 
-      if (!row.edit || !editable) {
+      if (!isEditingColumn || !editable) {
         return <span>{value}</span>;
       }
 
@@ -478,7 +603,8 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
     (columnIndex: 0 | 1) =>
       (params: CustomInnerHeaderProps<PolicyCompareRow>) => {
         const hasPendingChanges = rows.some((row) => {
-          if (!row.edit) {
+          const isEditingColumn = columnIndex === 0 ? row.edit1 : row.edit2;
+          if (!isEditingColumn) {
             return false;
           }
 
@@ -506,6 +632,58 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
     [rows, savingColumn, handleSave]
   );
 
+  const getCompareCellStyle = React.useCallback(
+    (leftValue?: string, rightValue?: string) => {
+      if (!isCompareMode || rightValue === undefined) {
+        return undefined;
+      }
+
+      const leftText = leftValue ?? "";
+      const rightText = rightValue ?? "";
+
+      if (leftText === rightText) {
+        return undefined;
+      }
+
+      return {
+        backgroundColor: "rgba(255, 193, 7, 0.18)",
+        borderLeft: "3px solid #ffbf00",
+      };
+    },
+    [isCompareMode]
+  );
+
+  const getRowHeight = React.useCallback((params: { data?: PolicyCompareRow }) => {
+    const row = params.data;
+    if (!row) {
+      return 42;
+    }
+
+    const texts = [
+      row.ruleSetId ?? "",
+      row.value1 ?? "",
+      row.newValue1 ?? "",
+      row.value2 ?? "",
+      row.newValue2 ?? "",
+      row.description ?? "",
+      row.connectorName ?? "",
+    ].filter((value) => value && value.length > 0);
+
+    if (texts.length === 0) {
+      return 42;
+    }
+
+    const longestText = texts.reduce((longest, current) => (current.length > longest.length ? current : longest), "");
+    const estimatedCharsPerLine = 52;
+    const estimatedLines = Math.max(1, Math.ceil((longestText.length || 1) / estimatedCharsPerLine));
+
+    if (estimatedLines <= 1) {
+      return 42;
+    }
+
+    return Math.max(42, (estimatedLines - 1) * 18 + 42);
+  }, []);
+
   const columnDefs = React.useMemo(() => {
     const editIcon = (params: CustomCellRendererProps<PolicyCompareRow>) => {
       const row = params.data;
@@ -513,7 +691,8 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
         return null;
       }
 
-      return row.edit ? (
+      const isEditing = row.edit1 || row.edit2;
+      return isEditing ? (
         <Button icon={<ArrowUndoRegular />} onClick={() => setRowEdit(row.rowKey, false)} />
       ) : (
         <Button icon={<EditRegular />} onClick={() => setRowEdit(row.rowKey, true)} />
@@ -533,6 +712,8 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
             sortable: false,
             wrapText: true,
             autoHeight: true,
+            cellStyle: (params: { data?: PolicyCompareRow }) =>
+              getCompareCellStyle(params.data?.value1, params.data?.value2),
             cellRenderer: (params: { value?: string }) => params.value ?? "",
           },
           {
@@ -544,6 +725,8 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
             wrapText: true,
             autoHeight: true,
             headerComponent: makeSaveHeaderButton(0),
+            cellStyle: (params: { data?: PolicyCompareRow }) =>
+              getCompareCellStyle(params.data?.newValue1, params.data?.newValue2),
             cellRenderer: (params: { data?: PolicyCompareRow }) => (params.data ? renderEditableCell(params.data, 0) : null),
           },
         ],
@@ -563,6 +746,8 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
             sortable: false,
             wrapText: true,
             autoHeight: true,
+            cellStyle: (params: { data?: PolicyCompareRow }) =>
+              getCompareCellStyle(params.data?.value2, params.data?.value1),
             cellRenderer: (params: { value?: string }) => params.value ?? "",
           },
           {
@@ -574,6 +759,8 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
             wrapText: true,
             autoHeight: true,
             headerComponent: makeSaveHeaderButton(1),
+            cellStyle: (params: { data?: PolicyCompareRow }) =>
+              getCompareCellStyle(params.data?.newValue2, params.data?.newValue1),
             cellRenderer: (params: { data?: PolicyCompareRow }) => (params.data ? renderEditableCell(params.data, 1) : null),
           },
         ],
@@ -715,7 +902,9 @@ export const PoliciesGrid = React.memo((props: PoliciesGridProps): React.JSX.Ele
             theme={theme}
             rowData={rows}
             columnDefs={columnDefs}
+            defaultColDef={{ wrapText: true, autoHeight: true }}
             domLayout="normal"
+            getRowHeight={getRowHeight}
             enableCellTextSelection={true}
             ensureDomOrder={true}
             getRowId={(params) => params.data.rowKey}

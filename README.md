@@ -6,19 +6,19 @@ A Power Platform Tool Box tool which allows you to edit some behind the scenes s
 
 - ✅ Organization Settings tab (OrgDbOrgSettings) for classic org-level flags
 - ✅ Environment Settings API tab for modern environment-level settings
-- ✅ Enable/disable boolean settings and edit text/number values
+- ✅ Environment Groups and policy comparison workflows for governance rule review
 - ✅ Compare primary and secondary environments side-by-side
-- ✅ Save primary and secondary changes independently from each grid
-- ✅ Inline setting guidance from Microsoft and LinkeD365 sources
+- ✅ Rule-based policy and rule set updates through the Power Platform Governance APIs
+- ✅ Inline setting guidance from Microsoft, LinkeD365, and governance metadata sources
 - ✅ Automatic fallback when Environment Management API is unavailable
 
-Tool is based of Sean McNellis original tool <https://github.com/seanmcne/OrgDbOrgSettings>
+Tool is based on Sean McNellis original tool <https://github.com/seanmcne/OrgDbOrgSettings>
 
 ## New Functionality
 
 ### Environment Settings API Support
 
-The tool now loads settings from the Power Platform Environment Management endpoint and shows them in a dedicated **Environment Settings API** tab.
+The tool loads settings from the Power Platform Environment Management endpoint and shows them in a dedicated **Environment Settings API** tab.
 
 - Reads settings by environment id automatically for the active connection
 - Supports compare mode when a secondary connection is selected
@@ -34,14 +34,37 @@ Both settings experiences support side-by-side compare. Each connection has its 
 - Save only secondary changes
 - Keep one side unchanged while validating the other
 
-### Setting Metadata
+### Environment Groups and Policy Management
 
-For Environment Settings API rows, additional descriptions and docs links are loaded from [PPApiInfo.json](PPApiInfo.json) and shown in the grid info popup.
+The tool also includes an **Environment Groups** experience for reviewing and updating governance policy configuration.
+
+- Lists environment groups and their assigned policies
+- Compares policy values across groups when needed
+- Surfaces rule metadata, display names, preview flags, and docs links
+- Updates rule-based policies and rule sets using the Power Platform Governance API contract
+- Validates and coerces value types before sending updates to avoid schema errors
+
+### Policy Metadata and Help Content
+
+Rule metadata is loaded from the governance UI configuration and a local fallback JSON file to provide friendly labels, descriptions, and learn-more links where available.
+
+- Shows policy help text and docs links in the info popup
+- Hides empty learn-more links automatically
+- Keeps policy names readable when metadata is incomplete
+
+### Notification UX
+
+Save and validation workflows use the Power Platform Toolbox notifications system for clear user feedback.
+
+- Success notifications for completed saves
+- Error notifications with the actual API validation message
+- Informational notifications for no-op or unchanged saves
 
 ## Notes
 
 - If Environment Management API calls fail for a connection, the Organization Settings experience is still available.
-- Some environment settings are service-managed and may not be editable.
+- Some environment settings and governance rules are service-managed and may not be editable.
+- Policy update payloads are type-aware to match the expected governance schema.
 
 ## Installation
 

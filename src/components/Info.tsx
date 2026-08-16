@@ -95,24 +95,28 @@ export const RuleSetInfoPopup = ({
   isPreview,
   learnMoreText,
   learnMoreLink,
-}: RuleSetInfoPopupProps): React.JSX.Element => (
-  <TeachingPopover>
-    <TeachingPopoverTrigger>
-      <Button appearance="transparent" icon={<Info16Regular />} />
-    </TeachingPopoverTrigger>
-    <TeachingPopoverSurface>
-      <TeachingPopoverHeader>
-        {name}
-        {isPreview ? " (Preview)" : ""}
-      </TeachingPopoverHeader>
-      <TeachingPopoverBody>
-        <div style={{ marginTop: 8, maxWidth: "300px", marginBottom: 16 }}>{description || "No description available."}</div>
-        {learnMoreLink && (
-          <a href={learnMoreLink} target="_blank" rel="noopener noreferrer">
-            {learnMoreText || "Learn more"}
-          </a>
-        )}
-      </TeachingPopoverBody>
-    </TeachingPopoverSurface>
-  </TeachingPopover>
-);
+}: RuleSetInfoPopupProps): React.JSX.Element => {
+  const populatedLearnMoreLink = learnMoreLink?.trim();
+
+  return (
+    <TeachingPopover>
+      <TeachingPopoverTrigger>
+        <Button appearance="transparent" icon={<Info16Regular />} />
+      </TeachingPopoverTrigger>
+      <TeachingPopoverSurface>
+        <TeachingPopoverHeader>
+          {name}
+          {isPreview ? " (Preview)" : ""}
+        </TeachingPopoverHeader>
+        <TeachingPopoverBody>
+          <div style={{ marginTop: 8, maxWidth: "300px", marginBottom: 16 }}>{description || "No description available."}</div>
+          {populatedLearnMoreLink && (
+            <a href={populatedLearnMoreLink} target="_blank" rel="noopener noreferrer">
+              {learnMoreText || "Learn more"}
+            </a>
+          )}
+        </TeachingPopoverBody>
+      </TeachingPopoverSurface>
+    </TeachingPopover>
+  );
+};

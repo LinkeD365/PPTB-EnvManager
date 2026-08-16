@@ -73,6 +73,23 @@ type RuleSetUIConfigLookup = Map<
   { config: RuleSetUIConfiguration; componentsByProperty: Map<string, RuleSetUIConfigurationComponent> }
 >;
 
+export interface EnvironmentGroupRuleOption {
+  value: string | number | boolean;
+  label?: string;
+}
+
+export interface EnvironmentGroupRuleProperty {
+  name: string;
+  label?: string;
+  type: "boolean" | "number" | "text";
+  editable?: boolean;
+  defaultValue?: string | number | boolean;
+  path?: string;
+  options?: EnvironmentGroupRuleOption[];
+  min?: number;
+  max?: number;
+}
+
 export interface EnvironmentGroupPolicyRuleSetRow {
   policyId: string;
   policyName: string;
@@ -119,20 +136,20 @@ export class EnvironmentManagementUtils {
     return window.powerplatformAPI.EnvironmentManagement.Patch(endpoint, body, this.getConnectionTarget(options));
   }
 
-  private async putGovernance(
-    endpoint: string,
-    body: Record<string, unknown>,
-    options?: EnvironmentApiOptions
-  ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
-    return window.powerplatformAPI.Governance.Put(endpoint, body, this.getConnectionTarget(options));
-  }
-
   private async patchGovernance(
     endpoint: string,
     body: Record<string, unknown>,
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     return window.powerplatformAPI.Governance.Patch(endpoint, body, this.getConnectionTarget(options));
+  }
+
+  private async putGovernance(
+    endpoint: string,
+    body: Record<string, unknown>,
+    options?: EnvironmentApiOptions
+  ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
+    return window.powerplatformAPI.Governance.Put(endpoint, body, this.getConnectionTarget(options));
   }
 
   async getEnvironmentGroupPolicyAssignments(
@@ -209,7 +226,7 @@ export class EnvironmentManagementUtils {
 
   async updateRuleBasedPolicy(
     policyId: string,
-    payload: { name?: string; ruleSets: Array<Record<string, unknown>> },
+    payload: { id?: string; name?: string; ruleSets: Array<Record<string, unknown>> },
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `ruleBasedPolicies/${policyId}?api-version=${API_VERSION}`;
@@ -397,11 +414,71 @@ export class EnvironmentManagementUtils {
     return lookup;
   }
 
-  private envGroupRulesLookupPromise: Promise<Map<string, { name: string; description?: string }>> | null = null;
+  private envGroupRulesLookupPromise: Promise<Map<string, { name: string; description?: string; properties?: EnvironmentGroupRuleProperty[] }>> | null = null;
 
-  /** Builds a { apiName (lowercased) -> {name, description} } lookup from an EnvGrpRules.json-shaped payload. */
-  private buildEnvGroupRulesLookup(payload: unknown): Map<string, { name: string; description?: string }> {
-    const lookup = new Map<string, { name: string; description?: string }>();
+  private coercePropertyValue(value: unknown): string | number | boolean | undefined {
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return value;
+    }
+
+    return undefined;
+  }
+
+  private normalizeEnvGroupRuleOption(option: unknown): EnvironmentGroupRuleOption | null {
+    if (!option || typeof option !== "object") {
+      return null;
+    }
+
+    const record = option as Record<string, unknown>;
+    const value = this.coercePropertyValue(record.value ?? record.id ?? record.name);
+    if (value === undefined) {
+      return null;
+    }
+
+    return {
+      value,
+      label: this.extractText(record.label ?? record.text ?? record.name) || undefined,
+    };
+  }
+
+  private normalizeEnvGroupRuleProperty(propertyDef: unknown): EnvironmentGroupRuleProperty | null {
+    if (!propertyDef || typeof propertyDef !== "object") {
+      return null;
+    }
+
+    const record = propertyDef as Record<string, unknown>;
+    const name = this.extractText(record.name ?? record.propertyName ?? record.id ?? record.key);
+    if (!name) {
+      return null;
+    }
+
+    const rawType = this.extractText(record.type ?? record.valueType ?? record.dataType ?? "text");
+    const normalizedType = rawType.toLowerCase();
+    const type: EnvironmentGroupRuleProperty["type"] =
+      normalizedType === "boolean" ? "boolean" : normalizedType === "number" || normalizedType === "integer" || normalizedType === "int" ? "number" : "text";
+
+    const options = Array.isArray(record.options)
+      ? record.options.map((option) => this.normalizeEnvGroupRuleOption(option)).filter((option): option is EnvironmentGroupRuleOption => Boolean(option))
+      : undefined;
+
+    return {
+      name,
+      label: this.extractText(record.label ?? record.title ?? record.displayName) || undefined,
+      type,
+      editable: typeof record.editable === "boolean" ? record.editable : undefined,
+      defaultValue: this.coercePropertyValue(record.defaultValue ?? record.value ?? record.initialValue),
+      path: this.extractText(record.path ?? record.jsonPath ?? record.propertyPath) || undefined,
+      options: options && options.length > 0 ? options : undefined,
+      min: typeof record.min === "number" ? record.min : undefined,
+      max: typeof record.max === "number" ? record.max : undefined,
+    };
+  }
+
+  /** Builds a { apiName (lowercased) -> {name, description, properties} } lookup from an EnvGrpRules.json-shaped payload. */
+  private buildEnvGroupRulesLookup(
+    payload: unknown
+  ): Map<string, { name: string; description?: string; properties?: EnvironmentGroupRuleProperty[] }> {
+    const lookup = new Map<string, { name: string; description?: string; properties?: EnvironmentGroupRuleProperty[] }>();
     if (!Array.isArray(payload)) {
       return lookup;
     }
@@ -419,7 +496,12 @@ export class EnvironmentManagementUtils {
       }
 
       const description = this.extractText(record.longDescription) || undefined;
-      lookup.set(apiName.toLowerCase(), { name, description });
+      const rawProperties = Array.isArray(record.properties) ? record.properties : [];
+      const properties = rawProperties
+        .map((propertyDef) => this.normalizeEnvGroupRuleProperty(propertyDef))
+        .filter((propertyDef): propertyDef is EnvironmentGroupRuleProperty => Boolean(propertyDef));
+
+      lookup.set(apiName.toLowerCase(), { name, description, properties: properties.length > 0 ? properties : undefined });
     }
 
     return lookup;
@@ -430,7 +512,7 @@ export class EnvironmentManagementUtils {
    * GitHub (kept up to date independently of releases) and falling back to the bundled local copy if the
    * network request fails. Cached for the lifetime of this instance.
    */
-  private async getEnvGroupRulesLookup(): Promise<Map<string, { name: string; description?: string }>> {
+  private async getEnvGroupRulesLookup(): Promise<Map<string, { name: string; description?: string; properties?: EnvironmentGroupRuleProperty[] }>> {
     if (!this.envGroupRulesLookupPromise) {
       this.envGroupRulesLookupPromise = (async () => {
         try {
@@ -458,11 +540,58 @@ export class EnvironmentManagementUtils {
    */
   private mergeEnvGroupRulesIntoUIConfigLookup(
     uiConfigLookup: RuleSetUIConfigLookup,
-    envGroupRulesLookup: Map<string, { name: string; description?: string }>
+    envGroupRulesLookup: Map<string, { name: string; description?: string; properties?: EnvironmentGroupRuleProperty[] }>
   ): void {
     for (const [key, info] of envGroupRulesLookup) {
-      if (uiConfigLookup.has(key)) {
+      const existing = uiConfigLookup.get(key);
+      if (existing) {
+        if (!existing.config.name || existing.config.name.toLowerCase() === key.toLowerCase()) {
+          existing.config.name = info.name;
+        }
+        if (!existing.config.description && info.description) {
+          existing.config.description = info.description;
+        }
+        if (existing.config.components.length === 0 && (info.properties ?? []).length > 0) {
+          const components = (info.properties ?? []).map((propertyDef) => ({
+            componentId: propertyDef.name,
+            componentType: propertyDef.type,
+            text: propertyDef.label ?? propertyDef.name,
+            altText: info.description,
+            property: {
+              name: propertyDef.name,
+              type: propertyDef.type === "boolean" ? "Boolean" : propertyDef.type === "number" ? "Number" : "String",
+              defaultValue: this.coercePropertyValue(propertyDef.defaultValue) !== undefined ? String(propertyDef.defaultValue) : undefined,
+            },
+          }));
+
+          existing.config.components = components;
+          existing.componentsByProperty.clear();
+          for (const component of components) {
+            if (component.property.name) {
+              existing.componentsByProperty.set(component.property.name.toLowerCase(), component);
+            }
+          }
+        }
         continue;
+      }
+
+      const components = (info.properties ?? []).map((propertyDef) => ({
+        componentId: propertyDef.name,
+        componentType: propertyDef.type,
+        text: propertyDef.label ?? propertyDef.name,
+        altText: info.description,
+        property: {
+          name: propertyDef.name,
+          type: propertyDef.type === "boolean" ? "Boolean" : propertyDef.type === "number" ? "Number" : "String",
+          defaultValue: this.coercePropertyValue(propertyDef.defaultValue) !== undefined ? String(propertyDef.defaultValue) : undefined,
+        },
+      }));
+
+      const componentsByProperty = new Map<string, RuleSetUIConfigurationComponent>();
+      for (const component of components) {
+        if (component.property.name) {
+          componentsByProperty.set(component.property.name.toLowerCase(), component);
+        }
       }
 
       uiConfigLookup.set(key, {
@@ -470,9 +599,9 @@ export class EnvironmentManagementUtils {
           ruleSetId: key,
           name: info.name,
           description: info.description,
-          components: [],
+          components,
         },
-        componentsByProperty: new Map(),
+        componentsByProperty,
       });
     }
   }
@@ -611,6 +740,9 @@ export class EnvironmentManagementUtils {
                 !isConnectorManagementRuleSet &&
                 (inputValue === undefined || inputValue === null || typeof inputValue !== "object");
               const component = uiConfigEntry?.componentsByProperty.get(inputLabel.toLowerCase());
+              const propertyUiConfig = uiConfigLookup.get(inputLabel.toLowerCase());
+              const propertyName = propertyUiConfig?.config.name ?? component?.text ?? inputLabel;
+              const propertyDescription = propertyUiConfig?.config.description ?? component?.altText ?? uiConfigEntry?.config.description;
 
               return {
                 policyId,
@@ -623,11 +755,11 @@ export class EnvironmentManagementUtils {
                 rowKey: `${policyId}::${ruleSetId}::${inputLabel}`,
                 editable,
                 valueType: this.mapConfigPropertyType(component?.property.type) ?? this.detectValueType(inputValue),
-                displayName: component ? `${ruleSetDisplayName} / ${component.text}` : displayRuleSetId,
-                description: component?.altText ?? uiConfigEntry?.config.description,
-                isPreview: uiConfigEntry?.config.isPreview,
-                learnMoreText: component?.learnMoreText ?? uiConfigEntry?.config.learnMoreText,
-                learnMoreLink: component?.learnMoreLink ?? uiConfigEntry?.config.learnMoreLink,
+                displayName: component ? `${ruleSetDisplayName} / ${component.text}` : propertyUiConfig ? `${ruleSetDisplayName} / ${propertyName}` : displayRuleSetId,
+                description: propertyDescription,
+                isPreview: uiConfigEntry?.config.isPreview ?? propertyUiConfig?.config.isPreview,
+                learnMoreText: component?.learnMoreText ?? propertyUiConfig?.config.learnMoreText ?? uiConfigEntry?.config.learnMoreText,
+                learnMoreLink: component?.learnMoreLink ?? propertyUiConfig?.config.learnMoreLink ?? uiConfigEntry?.config.learnMoreLink,
                 updateContext: editable
                   ? ({
                       kind: "ruleBasedPolicy",
@@ -783,6 +915,9 @@ export class EnvironmentManagementUtils {
         const normalizedValue = isConnectorManagementParameter ? "" : this.stringifyScalar(rawValue);
         const editable = !isConnectorManagementParameter && (rawValue === undefined || rawValue === null || typeof rawValue !== "object");
         const component = uiConfigEntry?.componentsByProperty.get(valueId.toLowerCase());
+        const propertyUiConfig = uiConfigLookup.get(valueId.toLowerCase());
+        const propertyName = propertyUiConfig?.config.name ?? component?.text ?? valueId;
+        const propertyDescription = propertyUiConfig?.config.description ?? component?.altText ?? uiConfigEntry?.config.description;
 
         return {
           policyId: sourceId,
@@ -795,11 +930,11 @@ export class EnvironmentManagementUtils {
           rowKey: `${sourceId}::${parameterType}::${valueId}::${valueIndex}`,
           editable,
           valueType: this.mapConfigPropertyType(component?.property.type) ?? this.detectValueType(rawValue),
-          displayName: component ? `${ruleSetDisplayName} / ${component.text}` : `${ruleSetDisplayName} / ${valueId}`,
-          description: component?.altText ?? uiConfigEntry?.config.description,
-          isPreview: uiConfigEntry?.config.isPreview,
-          learnMoreText: component?.learnMoreText ?? uiConfigEntry?.config.learnMoreText,
-          learnMoreLink: component?.learnMoreLink ?? uiConfigEntry?.config.learnMoreLink,
+          displayName: component ? `${ruleSetDisplayName} / ${component.text}` : propertyUiConfig ? `${ruleSetDisplayName} / ${propertyName}` : `${ruleSetDisplayName} / ${valueId}`,
+          description: propertyDescription,
+          isPreview: uiConfigEntry?.config.isPreview ?? propertyUiConfig?.config.isPreview,
+          learnMoreText: component?.learnMoreText ?? propertyUiConfig?.config.learnMoreText ?? uiConfigEntry?.config.learnMoreText,
+          learnMoreLink: component?.learnMoreLink ?? propertyUiConfig?.config.learnMoreLink ?? uiConfigEntry?.config.learnMoreLink,
           updateContext: editable
             ? ({
                 kind: "ruleSet",
@@ -964,7 +1099,10 @@ export class EnvironmentManagementUtils {
       return policyCompare !== 0 ? policyCompare : left.ruleSetId.localeCompare(right.ruleSetId);
     });
   }
+
+  
 }
+
 
 export const environmentManagement = new EnvironmentManagementUtils();
 
