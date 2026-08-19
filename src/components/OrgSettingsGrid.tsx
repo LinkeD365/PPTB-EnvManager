@@ -39,6 +39,27 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
     setItemNewValue,
   } = props;
 
+  const getCompareCellStyle = React.useCallback(
+    (leftValue: unknown, rightValue?: unknown) => {
+      if (!secondaryConnectionName || rightValue === undefined) {
+        return undefined;
+      }
+
+      const leftText = leftValue === null || leftValue === undefined ? "" : String(leftValue);
+      const rightText = rightValue === null || rightValue === undefined ? "" : String(rightValue);
+
+      if (leftText === rightText) {
+        return undefined;
+      }
+
+      return {
+        backgroundColor: "rgba(255, 193, 7, 0.18)",
+        borderLeft: "3px solid #ffbf00",
+      };
+    },
+    [secondaryConnectionName]
+  );
+
   const renderCompactValue = React.useCallback((value: unknown) => {
     const text = value === null || value === undefined ? "" : String(value);
     return (
@@ -133,6 +154,7 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
                 headerName: "Current Value",
                 flex: 1,
                 minWidth: 160,
+                cellStyle: (params: { data?: orgProp }) => getCompareCellStyle(params.data?.secondaryCurrent ?? null, params.data?.current ?? undefined),
                 cellRenderer: (params: { value?: string }) => renderCompactValue(params.value),
               },
               {
@@ -141,6 +163,7 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
                 minWidth: 160,
                 headerName: "New Value",
                 headerComponent: saveHeaderSecondaryButton,
+                cellStyle: (params: { data?: orgProp }) => getCompareCellStyle(params.data?.secondaryNew ?? null, params.data?.new ?? undefined),
                 cellRenderer: (params: { data: orgProp }) =>
                   params.data ? (
                     <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={true} />
@@ -176,6 +199,7 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
             headerName: "Current Value",
             flex: 1,
             minWidth: 160,
+            cellStyle: (params: { data?: orgProp }) => getCompareCellStyle(params.data?.current ?? null, params.data?.secondaryCurrent ?? undefined),
             cellRenderer: (params: { value?: string }) => renderCompactValue(params.value),
           },
           {
@@ -184,6 +208,7 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
             minWidth: 160,
             headerName: "New Value",
             headerComponent: saveHeaderButton,
+            cellStyle: (params: { data?: orgProp }) => getCompareCellStyle(params.data?.new ?? null, params.data?.secondaryNew ?? undefined),
             cellRenderer: (params: { data: orgProp }) =>
               params.data ? (
                 <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={false} />
@@ -201,7 +226,8 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
         theme={theme}
         rowData={rowData}
         columnDefs={columnDefs}
-        domLayout="normal"
+        defaultColDef={{ wrapText: true, autoHeight: true }}
+        domLayout="autoHeight"
         enableCellTextSelection={true}
         ensureDomOrder={true}
       />

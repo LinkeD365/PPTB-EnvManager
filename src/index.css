@@ -59,10 +59,10 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica", "Arial", sans-serif;
-  background: linear-gradient(135deg, #a3a7b9 0%, #764ba2 100%);
+  background: var(--primary-background-color);
   color: #333;
   line-height: 1.6;
-  padding: 5px;
+  padding: 0;
   min-height: 100vh;
 }
 .ag-cell {
@@ -261,9 +261,13 @@ body {
 
 .env-grid-shell {
   width: 100%;
+  max-width: none;
+  flex: 1 1 auto;
   height: 100%;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -271,7 +275,11 @@ body {
 .env-grid-shell .ag-root-wrapper-body,
 .env-grid-shell .ag-center-cols-viewport,
 .env-grid-shell .ag-body-viewport,
-.env-grid-shell .ag-body-horizontal-scroll-viewport {
+.env-grid-shell .ag-body-horizontal-scroll-viewport,
+.env-grid-shell .ag-root-wrapper > .ag-context,
+.env-grid-shell .ag-root-wrapper > .ag-layout-normal {
+  width: 100% !important;
+  max-width: none;
   min-width: 0;
 }
 
@@ -307,10 +315,21 @@ body {
 
 .org-grid-shell {
   width: 100%;
+  max-width: none;
+  flex: 1 1 auto;
   height: 100%;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.env-manager-tab-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
 }
 
 .org-grid-shell .ag-root-wrapper,
@@ -462,7 +481,7 @@ body {
 
 @media (max-width: 768px) {
   body {
-    padding: 10px;
+    padding: 0;
   }
 
   .header h1 {

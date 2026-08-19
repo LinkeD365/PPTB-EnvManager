@@ -68,6 +68,27 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
     return String(value);
   }, []);
 
+  const getCompareCellStyle = React.useCallback(
+    (leftValue: EnvSettingValue, rightValue?: EnvSettingValue) => {
+      if (!secondaryConnectionName || rightValue === undefined) {
+        return undefined;
+      }
+
+      const leftText = leftValue === null || leftValue === undefined ? "" : String(leftValue);
+      const rightText = rightValue === null || rightValue === undefined ? "" : String(rightValue);
+
+      if (leftText === rightText) {
+        return undefined;
+      }
+
+      return {
+        backgroundColor: "rgba(255, 193, 7, 0.18)",
+        borderLeft: "3px solid #ffbf00",
+      };
+    },
+    [secondaryConnectionName]
+  );
+
   const renderCompactValue = React.useCallback(
     (value: EnvSettingValue) => {
       const text = formatCurrentValueText(value);
@@ -236,6 +257,8 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
                 filter: true,
                 sortable: true,
                 resizable: true,
+                cellStyle: (params: { data?: EnvApiGridRow }) =>
+                  getCompareCellStyle(params.data?.secondaryCurrent ?? null, params.data?.current ?? undefined),
                 cellRenderer: (params: { value?: EnvSettingValue }) => {
                   return renderCompactValue(params.value ?? null);
                 },
@@ -249,6 +272,8 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
                 sortable: true,
                 resizable: true,
                 headerComponent: saveHeaderSecondaryButton,
+                cellStyle: (params: { data?: EnvApiGridRow }) =>
+                  getCompareCellStyle(params.data?.secondaryNew ?? null, params.data?.new ?? undefined),
                 cellRenderer: (params: { data?: EnvApiGridRow; value?: EnvSettingValue }) => {
                   const row = params.data;
                   const value = params.value;
@@ -335,6 +360,8 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
             filter: true,
             sortable: true,
             resizable: true,
+            cellStyle: (params: { data?: EnvApiGridRow }) =>
+              getCompareCellStyle(params.data?.current ?? null, params.data?.secondaryCurrent ?? undefined),
             cellRenderer: (params: { value?: EnvSettingValue }) => {
               return renderCompactValue(params.value ?? null);
             },
@@ -348,6 +375,8 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
             sortable: true,
             resizable: true,
             headerComponent: saveHeaderButton,
+            cellStyle: (params: { data?: EnvApiGridRow }) =>
+              getCompareCellStyle(params.data?.new ?? null, params.data?.secondaryNew ?? undefined),
             cellRenderer: (params: { data?: EnvApiGridRow; value?: EnvSettingValue }) => {
               const row = params.data;
               const value = params.value;
@@ -405,7 +434,8 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
           theme={theme}
           rowData={rows}
           columnDefs={resolvedColumnDefs}
-          domLayout="normal"
+          defaultColDef={{ wrapText: true, autoHeight: true }}
+          domLayout="autoHeight"
           enableCellTextSelection={true}
           ensureDomOrder={true}
         />
