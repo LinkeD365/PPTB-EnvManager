@@ -6,7 +6,7 @@
     "ruleId": "DisableAiGeneratedDescriptions",
     "groupId": "DisableAiGeneratedDescriptions",
     "shortDescription": "Disable AI-generated descriptions",
-    "LongDescription": "Let Power Apps do the work for you. If descriptions of apps or solutions are blank, AI will be used to generate them. This will happen when an app is published, or when a solution is deployed. This can help people understand what the purpose of an app or solution is.",
+    "longDecscription": "Let Power Apps do the work for you. If descriptions of apps or solutions are blank, AI will be used to generate them. This will happen when an app is published, or when a solution is deployed. This can help people understand what the purpose of an app or solution is.",
     "dataType": "boolean",
     "value": {
       "id": "DisableAiGeneratedDescriptions",
@@ -21,7 +21,7 @@
     "groupId": "GenerativeAISettings",
     "dataType": "boolean",
     "shortDescription": "Allow cross-geo data movement for Copilot",
-    "LongDescription": "Allow cross-geo data movement for Copilot. This setting allows Copilot to move data across different geographic regions to provide AI-powered features. Enabling this setting may have implications for data residency and compliance requirements.",
+    "longDecscription": "Allow cross-geo data movement for Copilot. This setting allows Copilot to move data across different geographic regions to provide AI-powered features. Enabling this setting may have implications for data residency and compliance requirements.",
     "value": {
       "id": "crossGeoCopilotDataMovementEnabled",
       "value": "booleanString"
@@ -35,7 +35,7 @@
     "groupId": "GenerativeAISettings",
     "dataType": "boolean",
     "shortDescription": "Enable Bing Chat",
-    "LongDescription": "Enable Bing Chat. This setting allows users to access Bing Chat features within the application. Enabling this setting may provide enhanced search and conversational capabilities.",
+    "longDecscription": "Enable Bing Chat. This setting allows users to access Bing Chat features within the application. Enabling this setting may provide enhanced search and conversational capabilities.",
     "value": {
       "id": "bingChatEnabled",
       "value": "booleanString"
@@ -49,7 +49,7 @@
     "groupId": "Lifecycle",
     "dataType": "choice",
     "shortDescription": "Set retention period for data",
-    "LongDescription": "This setting allows administrators to specify how long data should be retained. Administrators can choose from predefined retention periods to ensure compliance with organizational policies and regulatory requirements.",
+    "longDecscription": "This setting allows administrators to specify how long data should be retained. Administrators can choose from predefined retention periods to ensure compliance with organizational policies and regulatory requirements.",
     "value": {
       "id": "RetentionPeriod",
       "value": "choiceString",
@@ -77,11 +77,11 @@
     "ruleType": "ruleSet",
     "resourceType": "App",
     "type": "Sharing",
-    "ruleId": "CanShareWithSecurityGroups",
+    "ruleId": "App_CanShareWithSecurityGroups",
     "groupId": "Sharing",
     "dataType": "choice",
     "shortDescription": "Canvas app sharing scope",
-    "LongDescription": "Control whether canvas apps can be shared without limits or only with specific audiences.",
+    "longDecscription": "Control whether canvas apps can be shared without limits or only with specific audiences.",
     "value": {
       "id": "CanShareWithSecurityGroups",
       "value": "choiceString",
@@ -103,7 +103,7 @@
     "groupId": "Sharing",
     "dataType": "boolean",
     "shortDescription": "Disable canvas app group sharing",
-    "LongDescription": "Prevent canvas apps from being shared with groups.",
+    "longDecscription": "Prevent canvas apps from being shared with groups.",
     "value": { "id": "IsGroupSharingDisabled", "value": "booleanString" }
   },
   {
@@ -111,10 +111,11 @@
     "resourceType": "App",
     "type": "Sharing",
     "ruleId": "MaximumShareLimit",
+    "parentRuleId": "App_CanShareWithSecurityGroups",
     "groupId": "Sharing",
     "dataType": "number",
     "shortDescription": "Canvas app maximum share limit",
-    "LongDescription": "Set the maximum number of users with whom a canvas app can be shared. Use -1 for no limit.",
+    "longDecscription": "Set the maximum number of users with whom a canvas app can be shared. Use -1 for no limit.",
     "value": {
       "id": "MaximumShareLimit",
       "value": "numberString",
@@ -127,11 +128,12 @@
     "ruleType": "ruleSet",
     "resourceType": "Flow",
     "type": "Sharing",
-    "ruleId": "CanShareWithSecurityGroups",
+    "ruleId": "Flow_CanShareWithSecurityGroups",
     "groupId": "Sharing",
     "dataType": "choice",
     "shortDescription": "Cloud flow sharing scope",
-    "LongDescription": "Control how solution-aware cloud flows can be shared.",
+    "longDecscription": "Control how solution-aware cloud flows can be shared.",
+    "childEnabledValue": "excludeSharingToSecurityGroups",
     "value": {
       "id": "CanShareWithSecurityGroups",
       "value": "choiceString",
@@ -157,7 +159,8 @@
     "groupId": "Sharing",
     "dataType": "number",
     "shortDescription": "Cloud flow maximum share limit",
-    "LongDescription": "Set the maximum number of users with whom a cloud flow can be shared. Use -1 for no limit.",
+    "longDecscription": "Set the maximum number of users with whom a cloud flow can be shared. Use -1 for no limit.",
+    "parentRuleId": "Flow_CanShareWithSecurityGroups",
     "value": {
       "id": "MaximumShareLimit",
       "value": "numberString",
@@ -174,7 +177,7 @@
     "groupId": "Sharing",
     "dataType": "choice",
     "shortDescription": "Agent editor sharing scope",
-    "LongDescription": "Control how agents can be shared with Editor permissions.",
+    "longDecscription": "Control how agents can be shared with Editor permissions.",
     "value": {
       "id": "CanShareWithSecurityGroups",
       "value": "choiceString",
@@ -196,19 +199,19 @@
     "groupId": "Sharing",
     "dataType": "choice",
     "shortDescription": "Agent viewer sharing scope",
-    "LongDescription": "Control how agents can be shared with Viewer permissions.",
+    "longDecscription": "Control how agents can be shared with Viewer permissions.",
     "childEnabledValue": "excludeSharingToSecurityGroups",
     "childValueWhenDisabled": "-1",
     "value": {
       "id": "CanShareWithSecurityGroups",
       "value": "choiceString",
       "choices": [
-        { "value": "disableSharing", "label": "Disable sharing" },
         { "value": "noLimit", "label": "Do not set limits" },
         {
           "value": "excludeSharingToSecurityGroups",
           "label": "Exclude sharing to security groups"
-        }
+        },
+        { "value": "disableSharing", "label": "Disable sharing" }
       ]
     }
   },
@@ -221,7 +224,7 @@
     "dataType": "number",
     "parentRuleId": "UsersBot_CanShareWithSecurityGroups",
     "shortDescription": "Agent viewer maximum share limit",
-    "LongDescription": "Set the maximum number of viewers who can access each agent. Use -1 for no limit.",
+    "longDecscription": "Set the maximum number of viewers who can access each agent. Use -1 for no limit.",
     "value": {
       "id": "MaximumShareLimit",
       "value": "numberString",
@@ -238,7 +241,7 @@
     "groupId": "SolutionChecker",
     "dataType": "choice",
     "shortDescription": "Solution checker enforcement mode",
-    "LongDescription": "Choose whether solution checker validation is disabled, warns, or blocks solution imports.",
+    "longDecscription": "Choose whether solution checker validation is disabled, warns, or blocks solution imports.",
     "value": {
       "id": "solutionCheckerMode",
       "value": "choiceString",
@@ -257,7 +260,7 @@
     "groupId": "SolutionChecker",
     "dataType": "boolean",
     "shortDescription": "Suppress solution checker validation emails",
-    "LongDescription": "Send validation emails only when a solution is blocked.",
+    "longDecscription": "Send validation emails only when a solution is blocked.",
     "value": { "id": "suppressValidationEmails", "value": "booleanString" }
   },
   {
@@ -268,7 +271,7 @@
     "groupId": "SolutionChecker",
     "dataType": "text",
     "shortDescription": "Solution checker rule overrides",
-    "LongDescription": "Specify Solution Checker rules to exclude from enforcement.",
+    "longDecscription": "Specify Solution Checker rules to exclude from enforcement.",
     "value": { "id": "solutionCheckerRuleOverrides", "value": "textString" }
   },
   {
@@ -279,7 +282,7 @@
     "groupId": "AdminDigest",
     "dataType": "boolean",
     "shortDescription": "Show usage insights on the admin home page",
-    "LongDescription": "Show insights for managed environments in this group on the admin center home page.",
+    "longDecscription": "Show insights for managed environments in this group on the admin center home page.",
     "value": { "id": "IncludeOnHomePageInsights", "value": "booleanString" }
   },
   {
@@ -290,7 +293,7 @@
     "groupId": "AdminDigest",
     "dataType": "boolean",
     "shortDescription": "Exclude environments from usage analysis",
-    "LongDescription": "Exclude managed environments in this group from usage insight analysis.",
+    "longDecscription": "Exclude managed environments in this group from usage insight analysis.",
     "value": {
       "id": "ExcludeEnvironmentFromAnalysis",
       "value": "booleanString"
@@ -330,7 +333,6 @@
     "shortDescription": "Agent response URL and image mode",
     "longDescription": "Structured mode controlling how URLs and images are blocked in Copilot Studio responses.",
     "parentRuleId": "BlockUrlsInResponsesForCopilotStudio",
-
     "value": {
       "id": "mode",
       "value": "choiceString",
@@ -391,17 +393,7 @@
     "ruleType": "policy",
     "groupId": "CopilotStudioAgentAuthenticationSettings",
     "ruleId": "CopilotStudio_AgentAuthenticationSettings",
-    "dataType": "choice",
-    "value": {
-      "id": "agentAuthenticationMode",
-      "value": "choiceString",
-      "choices": [
-        { "value": "AllowEntraAuth", "label": "Entra Auth" },
-        { "value": "AllowAllAuth", "label": "Allow All Supported" },
-        { "value": "RequireMicrosoftAuth", "label": "Require Microsoft Auth" },
-        { "value": "AllowChatsWithoutAuth", "label": "No Auth (Public)" }
-      ]
-    },
+    "dataType": "text",
     "shortDescription": "Agent authentication settings",
     "longDecscription": "Structured authentication mode settings for Copilot Studio agents."
   },
@@ -597,8 +589,8 @@
     "policyValuePath": "sharepoint",
     "policyEditor": "knowledgeSourceUrls",
     "dataType": "text",
-    "shortDescription": "SharePoint & OneDrive knowledge sources",
-    "longDecscription": "Control SharePoint & OneDrive knowledge source URLs. Custom rules are evaluated in order and end with a default Allow or Deny rule."
+    "shortDescription": "SharePoint knowledge sources",
+    "longDecscription": "Control SharePoint knowledge source URLs. Custom rules are evaluated in order and end with a default Allow or Deny rule."
   },
   {
     "ruleType": "policy",
@@ -620,6 +612,14 @@
     "dataType": "boolean",
     "shortDescription": "Document knowledge sources",
     "longDecscription": "Allow documents to be used as Copilot Studio knowledge sources."
+  },
+  {
+    "ruleType": "policy",
+    "groupId": "CopilotStudioSkillsControlSettings",
+    "ruleId": "CopilotStudio_Skills",
+    "dataType": "text",
+    "shortDescription": "Copilot Studio skills",
+    "longDecscription": "Structured URL rules controlling skills available to Copilot Studio agents."
   },
   {
     "ruleType": "policy",
@@ -816,25 +816,17 @@
   {
     "ruleType": "policy",
     "groupId": "MakerOnboardingContent",
-    "ruleId": "makerOnboardingPortals",
-    "dataType": "text",
-    "shortDescription": "Maker onboarding portals",
-    "longDecscription": "Portals where the maker onboarding content is displayed."
-  },
-  {
-    "ruleType": "policy",
-    "groupId": "MakerOnboardingContent",
-    "ruleId": "makerOnboardingTimestamp",
-    "dataType": "text",
-    "shortDescription": "Maker onboarding timestamp",
-    "longDecscription": "Timestamp identifying the current maker onboarding content version."
-  },
-  {
-    "ruleType": "policy",
-    "groupId": "MakerOnboardingContent",
     "ruleId": "makerOnboardingConsentRequired",
     "dataType": "boolean",
     "shortDescription": "Require maker onboarding consent",
     "longDecscription": "Require makers to consent to the onboarding content."
+  },
+  {
+    "ruleType": "policy",
+    "groupId": "ConnectorManagement",
+    "ruleId": "AllowedConnectorList",
+    "dataType": "text",
+    "shortDescription": "Allowed connector list",
+    "longDecscription": "Structured list of allowed connectors, actions, and connection types."
   }
 ]

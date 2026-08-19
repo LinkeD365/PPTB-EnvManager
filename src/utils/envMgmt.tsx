@@ -24,6 +24,7 @@ export interface EnvGroupRuleRow {
   edit: boolean;
   dependencyUpdate?: boolean;
   editable: boolean;
+  isNew?: boolean;
   updateContext?: EnvGroupRuleUpdateContext;
 }
 
@@ -74,6 +75,7 @@ export interface EnvGroupChoice {
   value: string | number;
   label: string;
   visible?: boolean;
+  default?: boolean;
 }
 
 export class EnvMgmt {
@@ -153,8 +155,15 @@ export class EnvMgmt {
     );
     const { currentValuesByKey, updateContextsByKey, firstRuleSet } =
       this.convertCurrentRuleSets(currentRuleSets);
-    const { currentPolicyValuesByKey, policyUpdateContextsByKey } =
-      this.convertCurrentPolicies(currentPolicies);
+    const policyWithCatalogRuleSets = this.addMissingPolicyRuleSets(
+      currentPolicies,
+      allRules,
+    );
+    const {
+      currentPolicyValuesByKey,
+      policyUpdateContextsByKey,
+      policyRuleSetContextsByGroup,
+    } = this.convertCurrentPolicies(policyWithCatalogRuleSets);
 
     return (Array.isArray(allRules) ? allRules : []).map((rule) => {
       if (!rule || typeof rule !== "object") {
@@ -172,16 +181,38 @@ export class EnvMgmt {
       const propertyId = String(nextRule.value?.id ?? ruleId).trim();
       const key = `${type}::${resourceType}::${propertyId}`.toLowerCase();
       const policyInputKey = String(nextRule.policyInputKey ?? ruleId);
+      const policyKey = `${nextRule.groupId}::${policyInputKey}`.toLowerCase();
       const policyContext =
         nextRule.ruleType === "policy"
-          ? policyUpdateContextsByKey.get(
-              `${nextRule.groupId}::${policyInputKey}`.toLowerCase(),
-            )
+          ? (policyUpdateContextsByKey.get(policyKey) ??
+            (() => {
+              const ruleSetContext = policyRuleSetContextsByGroup.get(
+                String(nextRule.groupId).toLowerCase(),
+              );
+              return ruleSetContext
+                ? {
+                    ...ruleSetContext,
+                    inputKey: policyInputKey,
+                    currentValue: undefined,
+                  }
+                : undefined;
+            })())
           : undefined;
       const nestedPolicyValue = getNestedValue(
         policyContext?.currentValue,
         nextRule.policyValuePath,
       );
+      const policyValueExists = nextRule.policyValuePath
+        ? nestedPolicyValue !== undefined
+        : policyContext?.currentValue &&
+            typeof policyContext.currentValue === "object" &&
+            !Array.isArray(policyContext.currentValue) &&
+            nextRule.value?.id
+          ? Object.prototype.hasOwnProperty.call(
+              policyContext.currentValue,
+              nextRule.value.id,
+            )
+          : policyContext?.currentValue !== undefined;
       const currentValueString = nextRule.policyValuePath
         ? nestedPolicyValue !== null && typeof nestedPolicyValue === "object"
           ? JSON.stringify(nestedPolicyValue)
@@ -196,9 +227,7 @@ export class EnvMgmt {
               ] ?? "",
             )
           : nextRule.ruleType === "policy"
-            ? (currentPolicyValuesByKey.get(
-                `${nextRule.groupId}::${policyInputKey}`.toLowerCase(),
-              ) ?? "")
+            ? (currentPolicyValuesByKey.get(policyKey) ?? "")
             : (currentValuesByKey.get(key) ?? "");
       const firstRuleSetId = String(firstRuleSet?.id ?? "").trim();
       const updateContext =
@@ -226,9 +255,52 @@ export class EnvMgmt {
       );
       nextRule.edit = false;
       nextRule.editable = Boolean(updateContext);
+      nextRule.isNew =
+        nextRule.ruleType === "policy"
+          ? !policyValueExists
+          : !currentValuesByKey.has(key);
       nextRule.updateContext = updateContext;
       return nextRule;
     }) as EnvGroupRuleRow[];
+  }
+
+  private addMissingPolicyRuleSets(
+    currentPolicies: unknown,
+    allRules: EnvGroupRuleRow[],
+  ): unknown {
+    if (!currentPolicies || typeof currentPolicies !== "object") {
+      return currentPolicies;
+    }
+
+    const policy = currentPolicies as Record<string, unknown>;
+    if (!String(policy.id ?? "").trim()) {
+      return currentPolicies;
+    }
+
+    const clone = JSON.parse(JSON.stringify(policy)) as Record<string, unknown>;
+    const ruleSets = Array.isArray(clone.ruleSets)
+      ? (clone.ruleSets as Record<string, unknown>[])
+      : [];
+    clone.ruleSets = ruleSets;
+    const existingGroupIds = new Set(
+      ruleSets.map((ruleSet) => String(ruleSet.id ?? "").toLowerCase()),
+    );
+
+    for (const rule of allRules) {
+      const groupId = String(rule?.groupId ?? "").trim();
+      if (
+        rule?.ruleType !== "policy" ||
+        !groupId ||
+        existingGroupIds.has(groupId.toLowerCase())
+      ) {
+        continue;
+      }
+
+      ruleSets.push({ id: groupId, inputs: {} });
+      existingGroupIds.add(groupId.toLowerCase());
+    }
+
+    return clone;
   }
 
   private convertCurrentRuleSets(currentRuleSets: object): {
@@ -310,14 +382,20 @@ export class EnvMgmt {
   private convertCurrentPolicies(currentPolicies: unknown): {
     currentPolicyValuesByKey: Map<string, string>;
     policyUpdateContextsByKey: Map<string, EnvGroupPolicyUpdateContext>;
+    policyRuleSetContextsByGroup: Map<string, EnvGroupPolicyUpdateContext>;
   } {
     const currentValuesByKey = new Map<string, string>();
     const updateContextsByKey = new Map<string, EnvGroupPolicyUpdateContext>();
+    const ruleSetContextsByGroup = new Map<
+      string,
+      EnvGroupPolicyUpdateContext
+    >();
 
     if (!currentPolicies || typeof currentPolicies !== "object") {
       return {
         currentPolicyValuesByKey: currentValuesByKey,
         policyUpdateContextsByKey: updateContextsByKey,
+        policyRuleSetContextsByGroup: ruleSetContextsByGroup,
       };
     }
 
@@ -335,7 +413,22 @@ export class EnvMgmt {
       const record = ruleSet as Record<string, unknown>;
       const groupId = String(record.id ?? "").trim();
 
-      if (!groupId || !record.inputs || typeof record.inputs !== "object") {
+      if (!groupId) {
+        continue;
+      }
+
+      if (policyId) {
+        ruleSetContextsByGroup.set(groupId.toLowerCase(), {
+          kind: "policy",
+          policyId,
+          policy,
+          ruleSetIndex,
+          inputKey: "",
+          currentValue: undefined,
+        });
+      }
+
+      if (!record.inputs || typeof record.inputs !== "object") {
         continue;
       }
 
@@ -365,6 +458,7 @@ export class EnvMgmt {
     return {
       currentPolicyValuesByKey: currentValuesByKey,
       policyUpdateContextsByKey: updateContextsByKey,
+      policyRuleSetContextsByGroup: ruleSetContextsByGroup,
     };
   }
 

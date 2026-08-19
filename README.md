@@ -7,6 +7,7 @@ A Power Platform Tool Box tool which allows you to edit some behind the scenes s
 - ✅ Organization Settings tab (OrgDbOrgSettings) for classic org-level flags
 - ✅ Environment Settings API tab for modern environment-level settings
 - ✅ Environment Groups and policy comparison workflows for governance rule review
+- ✅ Compare Environment Groups highlighting changes
 - ✅ Compare primary and secondary environments side-by-side
 - ✅ Rule-based policy and rule set updates through the Power Platform Governance APIs
 - ✅ Inline setting guidance from Microsoft, LinkeD365, and governance metadata sources

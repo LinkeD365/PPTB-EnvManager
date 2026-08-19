@@ -32,7 +32,7 @@ import {
   EnvironmentGroupRow,
   normalizeEnvironmentGroups,
 } from "./EnvironmentGroupsList";
-import { PoliciesGridv2 } from "./PoliciesGridv2";
+import { PoliciesGrid } from "./PoliciesGrid";
 
 interface EnvironmentGroupStats {
   count: number;
@@ -1210,17 +1210,12 @@ export const EnvManager = observer(
             {showTabs &&
               selectedTab === "environment-groups" &&
               (selectedEnvironmentGroups.length > 0 ? (
-                <PoliciesGridv2
+                <PoliciesGrid
                   groups={selectedEnvironmentGroups}
                   theme={myTheme}
                   onBack={() => setSelectedEnvironmentGroups([])}
                 />
               ) : (
-                // <PoliciesGrid
-                //   groups={selectedEnvironmentGroups}
-                //   theme={myTheme}
-                //   onBack={() => setSelectedEnvironmentGroups([])}
-                // />
                 <EnvironmentGroupsList
                   isLoading={isEnvGroupsLoading}
                   error={envGroupsError}
