@@ -1,7 +1,8 @@
+import envGroupRulesFallback from "../data/EnvGrpRules.json";
+
 const API_VERSION = "2024-10-01";
 const ENV_GROUP_RULES_URL =
   "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/main/EnvGrpRules.json";
-import envGroupRulesFallback from "../data/EnvGrpRules.json";
 
 export interface EnvGroupRuleRow {
   ruleType: string;
@@ -104,7 +105,7 @@ export class EnvMgmt {
     environmentGroupId: string,
     target?: "primary" | "secondary",
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
-    const assignedPolicy = `/ruleBasedPolicies/environmentGroups/${environmentGroupId}/assignments?api-version=${API_VERSION}`;
+    const assignedPolicy = `ruleBasedPolicies/environmentGroups/${environmentGroupId}/assignments?api-version=${API_VERSION}`;
     console.log("[EnvMgmt] Fetching aligned policies", {
       environmentGroupId,
       assignedPolicy,
@@ -118,8 +119,12 @@ export class EnvMgmt {
         ?.policyId ?? "",
     ).trim();
 
+    if (!policyId) {
+      return { value: [] };
+    }
+
     const policyDetailsResponse = await window.powerplatformAPI.Governance.Get(
-      `/ruleBasedPolicies/${policyId}?api-version=${API_VERSION}`,
+      `ruleBasedPolicies/${policyId}?api-version=${API_VERSION}`,
       target,
     );
     console.log("[EnvMgmt] Rule based policies response", {

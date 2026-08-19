@@ -489,13 +489,13 @@ export class EnvironmentManagementUtils {
       }
 
       const record = entry as Record<string, unknown>;
-      const apiName = this.extractText(record.apiName);
+      const apiName = this.extractText(record.type);
       const name = this.extractText(record.shortDescription);
       if (!apiName || !name) {
         continue;
       }
 
-      const description = this.extractText(record.longDescription) || undefined;
+      const description = this.extractText(record.longDecscription) || undefined;
       const rawProperties = Array.isArray(record.properties) ? record.properties : [];
       const properties = rawProperties
         .map((propertyDef) => this.normalizeEnvGroupRuleProperty(propertyDef))

@@ -101,7 +101,7 @@ export const RuleSetInfoPopup = ({
   return (
     <TeachingPopover>
       <TeachingPopoverTrigger>
-        <Button appearance="transparent" icon={<Info16Regular />} />
+        <Button appearance="transparent" icon={<Info16Regular />} aria-label={`More information about ${name}`} />
       </TeachingPopoverTrigger>
       <TeachingPopoverSurface>
         <TeachingPopoverHeader>
