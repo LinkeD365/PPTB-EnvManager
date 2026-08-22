@@ -7,7 +7,8 @@ A Power Platform Tool Box tool which allows you to edit some behind the scenes s
 - ✅ Organization Settings tab (OrgDbOrgSettings) for classic org-level flags
 - ✅ Environment Settings API tab for modern environment-level settings
 - ✅ Environment Groups and policy comparison workflows for governance rule review
-- ✅ Compare Environment Groups highlighting changes
+- ✅ Compare Environment Groups highlighting differences
+- ✅ Compare Connectors in Environment Groups highlighting differences
 - ✅ Compare primary and secondary environments side-by-side
 - ✅ Rule-based policy and rule set updates through the Power Platform Governance APIs
 - ✅ Inline setting guidance from Microsoft, LinkeD365, and governance metadata sources
@@ -53,13 +54,6 @@ Rule metadata is loaded from the governance UI configuration and a local fallbac
 - Hides empty learn-more links automatically
 - Keeps policy names readable when metadata is incomplete
 
-### Notification UX
-
-Save and validation workflows use the Power Platform Toolbox notifications system for clear user feedback.
-
-- Success notifications for completed saves
-- Error notifications with the actual API validation message
-- Informational notifications for no-op or unchanged saves
 
 ## Notes
 

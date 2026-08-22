@@ -29,6 +29,21 @@ export interface EnvGroupRuleRow {
   updateContext?: EnvGroupRuleUpdateContext;
 }
 
+export interface EnvGroupPolicyConnectorRow {
+  rowKey: string;
+  environmentGroupId: string;
+  policyId: string;
+  policyName: string;
+  ruleSetId: string;
+  connectorName: string;
+  connectorPath: string;
+}
+
+export interface EnvGroupRulesResult {
+  rules: EnvGroupRuleRow[];
+  connectors: EnvGroupPolicyConnectorRow[];
+}
+
 export interface EnvGroupRuleSetUpdateContext {
   kind: "ruleSet";
   ruleSetId: string;
@@ -80,6 +95,71 @@ export interface EnvGroupChoice {
 }
 
 export class EnvMgmt {
+  private getPolicyConnectors(
+    currentPolicies: unknown,
+    environmentGroupId: string,
+  ): EnvGroupPolicyConnectorRow[] {
+    if (!currentPolicies || typeof currentPolicies !== "object") {
+      return [];
+    }
+
+    const policy = currentPolicies as Record<string, unknown>;
+    const policyId = String(policy.id ?? policy.policyId ?? "").trim();
+    const policyName = String(
+      policy.displayName ?? policy.name ?? policyId,
+    ).trim();
+    const connectors = new Map<string, EnvGroupPolicyConnectorRow>();
+
+    for (const ruleSet of Array.isArray(policy.ruleSets)
+      ? policy.ruleSets
+      : []) {
+      if (!ruleSet || typeof ruleSet !== "object") {
+        continue;
+      }
+
+      const ruleSetRecord = ruleSet as Record<string, unknown>;
+      const ruleSetId = String(
+        ruleSetRecord.id ?? ruleSetRecord.ruleSetId ?? "",
+      ).trim();
+      const inputs =
+        ruleSetRecord.inputs && typeof ruleSetRecord.inputs === "object"
+          ? (ruleSetRecord.inputs as Record<string, unknown>)
+          : {};
+
+      for (const entry of Array.isArray(inputs.AllowedConnectorList)
+        ? inputs.AllowedConnectorList
+        : []) {
+        if (!entry || typeof entry !== "object") {
+          continue;
+        }
+
+        const connector = entry as Record<string, unknown>;
+        const connectorPath = String(
+          connector.AllowedConnector ?? connector.allowedConnector ?? "",
+        ).trim();
+        if (!connectorPath) {
+          continue;
+        }
+
+        const connectorName =
+          connectorPath.split("/").filter(Boolean).pop() ?? connectorPath;
+        const rowKey =
+          `${environmentGroupId}::${policyId}::${ruleSetId}::${connectorPath}`.toLowerCase();
+        connectors.set(rowKey, {
+          rowKey,
+          environmentGroupId,
+          policyId,
+          policyName,
+          ruleSetId,
+          connectorName,
+          connectorPath,
+        });
+      }
+    }
+
+    return Array.from(connectors.values());
+  }
+
   async getEnvironmentGroupRuleSets(
     environmentGroupId: string,
     target?: "primary" | "secondary",
@@ -141,7 +221,7 @@ export class EnvMgmt {
   async getEnvGroupRules(
     envGroupId: string,
     target: "primary" | "secondary",
-  ): Promise<EnvGroupRuleRow[]> {
+  ): Promise<EnvGroupRulesResult> {
     const [currentRuleSets, allRules, currentPolicies] = await Promise.all([
       this.getEnvironmentGroupRuleSets(envGroupId, target),
       this.getEnvGrpFullSet(),
@@ -170,7 +250,7 @@ export class EnvMgmt {
       policyRuleSetContextsByGroup,
     } = this.convertCurrentPolicies(policyWithCatalogRuleSets);
 
-    return (Array.isArray(allRules) ? allRules : []).map((rule) => {
+    const rules = (Array.isArray(allRules) ? allRules : []).map((rule) => {
       if (!rule || typeof rule !== "object") {
         return rule;
       }
@@ -267,6 +347,11 @@ export class EnvMgmt {
       nextRule.updateContext = updateContext;
       return nextRule;
     }) as EnvGroupRuleRow[];
+
+    return {
+      rules,
+      connectors: this.getPolicyConnectors(currentPolicies, envGroupId),
+    };
   }
 
   private addMissingPolicyRuleSets(

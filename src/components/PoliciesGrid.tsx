@@ -15,7 +15,9 @@ import {
   AddRegular,
   ArrowLeft16Regular,
   ArrowUndoRegular,
+  DocumentBulletListRegular,
   EditRegular,
+  PlugConnectedRegular,
   Save20Filled,
 } from "@fluentui/react-icons";
 import {
@@ -30,10 +32,16 @@ import {
   ValidationModule,
 } from "ag-grid-community";
 import { EnvironmentGroupRow } from "./EnvironmentGroupsList";
-import { EnvGroupRuleRow, EnvMgmt } from "../utils/envMgmt";
+import {
+  EnvGroupPolicyConnectorRow,
+  EnvGroupRuleRow,
+  EnvMgmt,
+} from "../utils/envMgmt";
 import { environmentManagement } from "../utils/environmentManagement";
 import { RuleSetInfoPopup } from "./Info";
 import { KnowledgeSourceEditor } from "./KnowledgeSourceEditor";
+import { ConnectorsGrid } from "./ConnectorsGrid";
+import { comparisonValuesDiffer } from "./ComparisonFilterButton";
 
 ModuleRegistry.registerModules([
   RowAutoHeightModule,
@@ -46,6 +54,7 @@ ModuleRegistry.registerModules([
 interface PoliciesGridProps {
   groups: EnvironmentGroupRow[];
   theme?: Theme | "legacy";
+  showOnlyDifferences: boolean;
   onBack: () => void;
 }
 
@@ -379,6 +388,7 @@ export const PoliciesGrid = React.memo(
   ({
     groups,
     theme = "legacy",
+    showOnlyDifferences,
     onBack,
   }: PoliciesGridProps): React.JSX.Element => {
     const [loadedRules, setLoadedRules] = React.useState<
@@ -387,6 +397,15 @@ export const PoliciesGrid = React.memo(
     const [secondaryRules, setSecondaryRules] = React.useState<
       EnvGroupRuleRow[] | null
     >(null);
+    const [connectors, setConnectors] = React.useState<
+      EnvGroupPolicyConnectorRow[]
+    >([]);
+    const [secondaryConnectors, setSecondaryConnectors] = React.useState<
+      EnvGroupPolicyConnectorRow[]
+    >([]);
+    const [view, setView] = React.useState<"policies" | "connectors">(
+      "policies",
+    );
     const [saving, setSaving] = React.useState(false);
     const [savingSecondary, setSavingSecondary] = React.useState(false);
     const knowledgeEditorRef = React.useRef<KnowledgeSourceEditor>(null);
@@ -852,11 +871,37 @@ export const PoliciesGrid = React.memo(
 
       return Array.from(rowsByKey.values());
     }, [loadedRules, secondaryRules]);
+    const visibleCompareRows =
+      groups[1] && showOnlyDifferences
+        ? compareRows.filter(
+            (row) =>
+              comparisonValuesDiffer(
+                row.primaryRule?.currentValueString,
+                row.secondaryRule?.currentValueString,
+              ) ||
+              comparisonValuesDiffer(
+                row.primaryRule?.newValueString,
+                row.secondaryRule?.newValueString,
+              ),
+          )
+        : compareRows;
 
     const getCompareCellStyle = React.useCallback(
-      (leftValue: string | undefined, rightValue: string | undefined) => {
+      (
+        leftValue: string | undefined,
+        rightValue: string | undefined,
+        leftRuleExists: boolean,
+        rightRuleExists: boolean,
+      ) => {
         if (!groups[1]) {
           return undefined;
+        }
+
+        if (leftRuleExists !== rightRuleExists) {
+          return {
+            backgroundColor: "rgba(255, 193, 7, 0.18)",
+            borderLeft: "3px solid #ffbf00",
+          };
         }
 
         if ((leftValue ?? "") === (rightValue ?? "")) {
@@ -1008,6 +1053,12 @@ export const PoliciesGrid = React.memo(
                 secondary
                   ? params.data?.primaryRule?.currentValueString
                   : params.data?.secondaryRule?.currentValueString,
+                secondary
+                  ? params.data?.secondaryRule !== undefined
+                  : params.data?.primaryRule !== undefined,
+                secondary
+                  ? params.data?.primaryRule !== undefined
+                  : params.data?.secondaryRule !== undefined,
               ),
             cellRenderer: (
               params: CustomCellRendererProps<PolicyCompareRow>,
@@ -1034,6 +1085,12 @@ export const PoliciesGrid = React.memo(
                 secondary
                   ? params.data?.primaryRule?.newValueString
                   : params.data?.secondaryRule?.newValueString,
+                secondary
+                  ? params.data?.secondaryRule !== undefined
+                  : params.data?.primaryRule !== undefined,
+                secondary
+                  ? params.data?.primaryRule !== undefined
+                  : params.data?.secondaryRule !== undefined,
               ),
             cellRenderer: (
               params: CustomCellRendererProps<PolicyCompareRow>,
@@ -1075,6 +1132,7 @@ export const PoliciesGrid = React.memo(
             {
               field: "shortDescription",
               headerName: "Name",
+              initialSort: "asc",
               flex: 2,
               minWidth: 220,
             },
@@ -1098,21 +1156,26 @@ export const PoliciesGrid = React.memo(
         if (!groups[0]) {
           setLoadedRules([]);
           setSecondaryRules(null);
+          setConnectors([]);
+          setSecondaryConnectors([]);
           return;
         }
         const envMgmt = new EnvMgmt();
-        const [loadedRules, loadedSecondaryRules] = await Promise.all([
+        const [loadedResult, secondaryResult] = await Promise.all([
           envMgmt.getEnvGroupRules(groups[0].environmentGroupId, "primary"),
           groups[1]
             ? envMgmt.getEnvGroupRules(groups[1].environmentGroupId, "primary")
             : Promise.resolve(null),
         ]);
         if (!cancelled) {
-          setLoadedRules(loadedRules);
-          setSecondaryRules(loadedSecondaryRules);
+          setLoadedRules(loadedResult.rules);
+          setSecondaryRules(secondaryResult?.rules ?? null);
+          setConnectors(loadedResult.connectors);
+          setSecondaryConnectors(secondaryResult?.connectors ?? []);
         }
       };
 
+      setView("policies");
       void loadPolicies();
       return () => {
         cancelled = true;
@@ -1173,23 +1236,54 @@ export const PoliciesGrid = React.memo(
               </div>
             )}
           </div>
+          <Button
+            appearance="subtle"
+            style={{ marginLeft: "auto" }}
+            icon={
+              view === "policies" ? (
+                <PlugConnectedRegular />
+              ) : (
+                <DocumentBulletListRegular />
+              )
+            }
+            aria-label={
+              view === "policies" ? "Show policy connectors" : "Show policies"
+            }
+            onClick={() =>
+              setView((current) =>
+                current === "policies" ? "connectors" : "policies",
+              )
+            }
+          >
+            {view === "policies" ? "Connectors" : "Policies"}
+          </Button>
         </div>
         <div className="env-grid-shell" style={{ flex: 1, minHeight: 0 }}>
-          <AgGridReact<PolicyCompareRow>
-            theme={theme}
-            rowData={compareRows}
-            getRowId={getPolicyRowId}
-            columnDefs={policyGridColumnDefs}
-            defaultColDef={{
-              editable: false,
-              sortable: true,
-              resizable: true,
-              filter: true,
-            }}
-            domLayout="normal"
-            enableCellTextSelection={true}
-            ensureDomOrder={true}
-          />
+          {view === "policies" ? (
+            <AgGridReact<PolicyCompareRow>
+              theme={theme}
+              rowData={visibleCompareRows}
+              getRowId={getPolicyRowId}
+              columnDefs={policyGridColumnDefs}
+              defaultColDef={{
+                editable: false,
+                sortable: true,
+                resizable: true,
+                filter: true,
+              }}
+              domLayout="normal"
+              enableCellTextSelection={true}
+              ensureDomOrder={true}
+            />
+          ) : (
+            <ConnectorsGrid
+              theme={theme}
+              groups={groups}
+              connectors={connectors}
+              secondaryConnectors={secondaryConnectors}
+              showOnlyDifferences={showOnlyDifferences}
+            />
+          )}
         </div>
       </div>
     );

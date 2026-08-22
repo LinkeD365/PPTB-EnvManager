@@ -8,7 +8,6 @@ import {
   themeQuartz,
 } from "ag-grid-community";
 import {
-  Button,
   Tab,
   TabList,
   SelectTabData,
@@ -36,6 +35,7 @@ import {
   normalizeEnvironmentGroups,
 } from "./EnvironmentGroupsList";
 import { PoliciesGrid } from "./PoliciesGrid";
+import { ComparisonFilterSwitch } from "./ComparisonFilterButton";
 
 interface EnvironmentGroupStats {
   count: number;
@@ -148,6 +148,7 @@ export const EnvManager = observer(
     );
     const [loadingSettings, setLoadingSettings] = React.useState(false);
     const [selectedTab, setSelectedTab] = React.useState("org-settings");
+    const [showOnlyDifferences, setShowOnlyDifferences] = React.useState(false);
     const [isEnvApiLoading, setIsEnvApiLoading] = React.useState(false);
     const [isEnvGroupsLoading, setIsEnvGroupsLoading] = React.useState(false);
     const [isEnvApiSaving, setIsEnvApiSaving] = React.useState(false);
@@ -1115,6 +1116,11 @@ export const EnvManager = observer(
       Boolean(envApiError) ||
       Boolean(envGroupsError);
     const canShowEnvironmentGroupsTab = envGroupsLoaded;
+    const canFilterDifferences =
+      (selectedTab === "org-settings" && Boolean(secondaryConnection)) ||
+      (selectedTab === "environment-settings" && envApiSecondaryLoaded) ||
+      (selectedTab === "environment-groups" &&
+        selectedEnvironmentGroups.length === 2);
 
     return (
       <div
@@ -1136,34 +1142,47 @@ export const EnvManager = observer(
           }}
         >
           {showTabs && (
-            <TabList
-              selectedValue={selectedTab}
-              onTabSelect={(_event: SelectTabEvent, data: SelectTabData) =>
-                setSelectedTab(String(data.value))
-              }
-              size="small"
-            >
-              <Tab value="org-settings">Organization Settings</Tab>
-              <Tab value="environment-settings">Environment Settings API</Tab>
-              {canShowEnvironmentGroupsTab && (
-                <Tab value="environment-groups">Environment Groups</Tab>
-              )}
-              {!canShowEnvironmentGroupsTab && envGroupsError && (
-                <Tooltip
-                  content="To enable the Environment Groups grid, you need to enable Power Platform API access."
-                  relationship="description"
-                >
-                  <span
-                    tabIndex={0}
-                    aria-label="Environment Groups unavailable"
-                    role="img"
-                    style={{ display: "inline-flex", alignItems: "center", padding: "2px 4px" }}
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <TabList
+                selectedValue={selectedTab}
+                onTabSelect={(_event: SelectTabEvent, data: SelectTabData) =>
+                  setSelectedTab(String(data.value))
+                }
+                size="small"
+                style={{ flex: 1, minWidth: 0 }}
+              >
+                <Tab value="org-settings">Organization Settings</Tab>
+                <Tab value="environment-settings">Environment Settings API</Tab>
+                {canShowEnvironmentGroupsTab && (
+                  <Tab value="environment-groups">Environment Groups</Tab>
+                )}
+                {!canShowEnvironmentGroupsTab && envGroupsError && (
+                  <Tooltip
+                    content="To enable the Environment Groups grid, you need to enable Power Platform API access."
+                    relationship="description"
                   >
-                    <Info16Regular />
-                  </span>
-                </Tooltip>
+                    <span
+                      tabIndex={0}
+                      aria-label="Environment Groups unavailable"
+                      role="img"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "2px 4px",
+                      }}
+                    >
+                      <Info16Regular />
+                    </span>
+                  </Tooltip>
+                )}
+              </TabList>
+              {canFilterDifferences && (
+                <ComparisonFilterSwitch
+                  showOnlyDifferences={showOnlyDifferences}
+                  onChange={setShowOnlyDifferences}
+                />
               )}
-            </TabList>
+            </div>
           )}
 
           <div
@@ -1183,6 +1202,7 @@ export const EnvManager = observer(
                 connectionName={connection.name}
                 secondaryConnectionName={secondaryConnection?.name}
                 isPowerPlatformApiUnavailable={Boolean(envApiError)}
+                showOnlyDifferences={showOnlyDifferences}
                 onSavePrimary={() => saveOrgSettings()}
                 onSaveSecondary={() => saveOrgSettings(true)}
                 setItemNewValue={setItemNewValue}
@@ -1199,6 +1219,7 @@ export const EnvManager = observer(
                 secondaryConnectionName={
                   envApiSecondaryLoaded ? secondaryConnection?.name : undefined
                 }
+                showOnlyDifferences={showOnlyDifferences}
                 isSaving={isEnvApiSaving}
                 isSecondarySaving={isSecondaryEnvApiSaving}
                 hasPendingChanges={envApiRows.some(
@@ -1231,6 +1252,7 @@ export const EnvManager = observer(
                 <PoliciesGrid
                   groups={selectedEnvironmentGroups}
                   theme={myTheme}
+                  showOnlyDifferences={showOnlyDifferences}
                   onBack={() => setSelectedEnvironmentGroups([])}
                 />
               ) : (
