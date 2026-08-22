@@ -1153,12 +1153,14 @@ export const EnvManager = observer(
                   content="To enable the Environment Groups grid, you need to enable Power Platform API access."
                   relationship="description"
                 >
-                  <Button
-                    appearance="transparent"
+                  <span
+                    tabIndex={0}
                     aria-label="Environment Groups unavailable"
-                    icon={<Info16Regular />}
-                    size="small"
-                  />
+                    role="img"
+                    style={{ display: "inline-flex", alignItems: "center", padding: "2px 4px" }}
+                  >
+                    <Info16Regular />
+                  </span>
                 </Tooltip>
               )}
             </TabList>
