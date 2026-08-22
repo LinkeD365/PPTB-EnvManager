@@ -9,6 +9,7 @@ import { AgGridReact } from "ag-grid-react";
 import { CustomCellRendererProps, CustomInnerHeaderProps } from "ag-grid-react";
 import { ColDef, ColGroupDef, Theme } from "ag-grid-community";
 import { EnvironmentInfoPopup } from "./EnvironmentInfo";
+import { comparisonValuesDiffer } from "./ComparisonFilterButton";
 
 export type EnvSettingValue = string | number | boolean | null;
 
@@ -32,6 +33,7 @@ interface EnvironmentSettingsGridProps {
   rows: EnvApiGridRow[];
   connectionName?: string;
   secondaryConnectionName?: string;
+  showOnlyDifferences: boolean;
   theme: Theme | "legacy";
   isSaving: boolean;
   isSecondarySaving: boolean;
@@ -57,6 +59,7 @@ export const EnvironmentSettingsGrid = (
     rows,
     connectionName,
     secondaryConnectionName,
+    showOnlyDifferences,
     theme,
     isSaving,
     isSecondarySaving,
@@ -67,6 +70,14 @@ export const EnvironmentSettingsGrid = (
     onSave,
     onSaveSecondary,
   } = props;
+  const visibleRows =
+    secondaryConnectionName && showOnlyDifferences
+      ? rows.filter(
+          (row) =>
+            comparisonValuesDiffer(row.current, row.secondaryCurrent) ||
+            comparisonValuesDiffer(row.new, row.secondaryNew),
+        )
+      : rows;
 
   const formatCurrentValueText = React.useCallback(
     (value: EnvSettingValue): string => {
@@ -384,6 +395,7 @@ export const EnvironmentSettingsGrid = (
       {
         field: "property",
         headerName: "Property",
+        initialSort: "asc",
         flex: 1,
         minWidth: 220,
         filter: true,
@@ -494,7 +506,7 @@ export const EnvironmentSettingsGrid = (
       <div className="env-grid-shell">
         <AgGridReact<EnvApiGridRow>
           theme={theme}
-          rowData={rows}
+          rowData={visibleRows}
           columnDefs={resolvedColumnDefs}
           defaultColDef={{ wrapText: true, autoHeight: true }}
           domLayout="normal"

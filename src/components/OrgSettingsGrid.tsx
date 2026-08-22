@@ -17,6 +17,7 @@ import { ColGroupDef, Theme } from "ag-grid-community";
 import { orgProp } from "../model/OrgSetting";
 import { InputControl } from "./InputControl";
 import { InfoPopup } from "./Info";
+import { comparisonValuesDiffer } from "./ComparisonFilterButton";
 
 function setItemEdit(item: orgProp, edit: boolean) {
   runInAction(() => {
@@ -30,6 +31,7 @@ interface OrgSettingsGridProps {
   connectionName?: string;
   secondaryConnectionName?: string;
   isPowerPlatformApiUnavailable?: boolean;
+  showOnlyDifferences: boolean;
   theme: Theme | "legacy";
   onSavePrimary: () => void;
   onSaveSecondary: () => void;
@@ -48,11 +50,20 @@ export const OrgSettingsGrid = (
     connectionName,
     secondaryConnectionName,
     isPowerPlatformApiUnavailable,
+    showOnlyDifferences,
     theme,
     onSavePrimary,
     onSaveSecondary,
     setItemNewValue,
   } = props;
+  const visibleRows =
+    secondaryConnectionName && showOnlyDifferences
+      ? rowData.filter(
+          (row) =>
+            comparisonValuesDiffer(row.current, row.secondaryCurrent) ||
+            comparisonValuesDiffer(row.new, row.secondaryNew),
+        )
+      : rowData;
 
   const getCompareCellStyle = React.useCallback(
     (leftValue: unknown, rightValue?: unknown) => {
@@ -268,6 +279,7 @@ export const OrgSettingsGrid = (
           {
             field: "name",
             headerName: "Name",
+            initialSort: "asc",
             filter: true,
             flex: 2,
             minWidth: 220,
@@ -332,7 +344,7 @@ export const OrgSettingsGrid = (
     <div className="org-grid-shell">
       <AgGridReact<orgProp>
         theme={theme}
-        rowData={rowData}
+        rowData={visibleRows}
         columnDefs={columnDefs}
         defaultColDef={{ wrapText: true, autoHeight: true }}
         domLayout="normal"

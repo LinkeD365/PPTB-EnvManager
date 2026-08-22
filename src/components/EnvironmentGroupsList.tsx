@@ -68,9 +68,16 @@ function parseEnvironmentGroups(payload: unknown): EnvironmentGroupRow[] {
     if (source && typeof source === "object") {
       const item = source as Record<string, unknown>;
       const environmentGroupId =
-        toText(item.environmentGroupId ?? item.id ?? item.groupId ?? item.name) || "unknown";
+        toText(
+          item.environmentGroupId ?? item.id ?? item.groupId ?? item.name,
+        ) || "unknown";
       const displayName =
-        toText(item.displayName ?? item.name ?? item.title ?? item.environmentGroupName) || environmentGroupId;
+        toText(
+          item.displayName ??
+            item.name ??
+            item.title ??
+            item.environmentGroupName,
+        ) || environmentGroupId;
       return [
         {
           environmentGroupId,
@@ -105,11 +112,23 @@ function parseEnvironmentGroups(payload: unknown): EnvironmentGroupRow[] {
 
       const item = entry as Record<string, unknown>;
       const environmentGroupId =
-        toText(item.environmentGroupId ?? item.id ?? item.groupId ?? item.name ?? item.displayName) ||
-        `group-${index + 1}`;
+        toText(
+          item.environmentGroupId ??
+            item.id ??
+            item.groupId ??
+            item.name ??
+            item.displayName,
+        ) || `group-${index + 1}`;
       const displayName =
-        toText(item.displayName ?? item.name ?? item.title ?? item.environmentGroupName) || environmentGroupId;
-      const description = toText(item.description ?? item.summary ?? item.shortDescription);
+        toText(
+          item.displayName ??
+            item.name ??
+            item.title ??
+            item.environmentGroupName,
+        ) || environmentGroupId;
+      const description = toText(
+        item.description ?? item.summary ?? item.shortDescription,
+      );
 
       return {
         environmentGroupId,
@@ -125,8 +144,9 @@ function parseEnvironmentGroups(payload: unknown): EnvironmentGroupRow[] {
     .sort((left, right) => left.displayName.localeCompare(right.displayName));
 }
 
-
-export function normalizeEnvironmentGroups(payload: unknown): EnvironmentGroupRow[] {
+export function normalizeEnvironmentGroups(
+  payload: unknown,
+): EnvironmentGroupRow[] {
   return parseEnvironmentGroups(payload);
 }
 ModuleRegistry.registerModules([
@@ -136,32 +156,57 @@ ModuleRegistry.registerModules([
   RenderApiModule,
 ]);
 
-export function EnvironmentGroupsList(props: EnvironmentGroupsListProps): React.JSX.Element {
-  const { isLoading, error, isLoaded, rows, theme, onShowPolicies, onCompareSelectedGroups } = props;
-  const [selectedRows, setSelectedRows] = React.useState<EnvironmentGroupRow[]>([]);
+export function EnvironmentGroupsList(
+  props: EnvironmentGroupsListProps,
+): React.JSX.Element {
+  const {
+    isLoading,
+    error,
+    isLoaded,
+    rows,
+    theme,
+    onShowPolicies,
+    onCompareSelectedGroups,
+  } = props;
+  const [selectedRows, setSelectedRows] = React.useState<EnvironmentGroupRow[]>(
+    [],
+  );
 
   const toggleExpanded = React.useCallback(
-    (row: EnvironmentGroupRow, params: { refreshCells: (opts: { force?: boolean }) => void; onRowHeightChanged: () => void }) => {
+    (
+      row: EnvironmentGroupRow,
+      params: {
+        refreshCells: (opts: { force?: boolean }) => void;
+        onRowHeightChanged: () => void;
+      },
+    ) => {
       row.isExpanded = !row.isExpanded;
       params.refreshCells({ force: true });
       params.onRowHeightChanged();
     },
-    []
+    [],
   );
 
-  const onRowClicked = React.useCallback((event: RowClickedEvent<EnvironmentGroupRow>) => {
-    const row = event.data;
-    if (!row || row.environmentCount === 0 || row.environmentNames.length === 0) {
-      return;
-    }
+  const onRowClicked = React.useCallback(
+    (event: RowClickedEvent<EnvironmentGroupRow>) => {
+      const row = event.data;
+      if (
+        !row ||
+        row.environmentCount === 0 ||
+        row.environmentNames.length === 0
+      ) {
+        return;
+      }
 
-    const target = event.event?.target as HTMLElement | null;
-    if (target?.closest("a,button,input,textarea,[role='button']")) {
-      return;
-    }
+      const target = event.event?.target as HTMLElement | null;
+      if (target?.closest("a,button,input,textarea,[role='button']")) {
+        return;
+      }
 
-    toggleExpanded(row, event.api);
-  }, [toggleExpanded]);
+      toggleExpanded(row, event.api);
+    },
+    [toggleExpanded],
+  );
 
   const onSelectionChanged = React.useCallback(
     (event: SelectionChangedEvent<EnvironmentGroupRow>) => {
@@ -170,10 +215,12 @@ export function EnvironmentGroupsList(props: EnvironmentGroupsListProps): React.
         selectedNodes.slice(2).forEach((node) => node.setSelected(false));
       }
 
-      const nextSelectedRows = event.api.getSelectedRows().slice(0, 2) as EnvironmentGroupRow[];
+      const nextSelectedRows = event.api
+        .getSelectedRows()
+        .slice(0, 2) as EnvironmentGroupRow[];
       setSelectedRows(nextSelectedRows);
     },
-    []
+    [],
   );
 
   const columnDefs = React.useMemo(
@@ -192,13 +239,24 @@ export function EnvironmentGroupsList(props: EnvironmentGroupsListProps): React.
             const canCompare = selectedRows.length === 2;
 
             return (
-              <div style={{ display: "flex", width: "100%", justifyContent: "flex-start", alignItems: "center" }}>
+              <div
+                style={{
+                  display: "flex",
+                  width: "100%",
+                  justifyContent: "flex-start",
+                  alignItems: "center",
+                }}
+              >
                 <Button
                   appearance="subtle"
                   size="small"
                   icon={<span aria-hidden="true">⇄</span>}
                   aria-label="Compare selected groups"
-                  title={canCompare ? "Compare selected groups" : "Select exactly two groups to compare"}
+                  title={
+                    canCompare
+                      ? "Compare selected groups"
+                      : "Select exactly two groups to compare"
+                  }
                   disabled={!canCompare}
                   onClick={() => onCompareSelectedGroups(selectedRows)}
                 />
@@ -228,6 +286,7 @@ export function EnvironmentGroupsList(props: EnvironmentGroupsListProps): React.
         {
           field: "displayName",
           headerName: "Name",
+          initialSort: "asc",
           flex: 1,
           minWidth: 220,
           filter: true,
@@ -262,14 +321,23 @@ export function EnvironmentGroupsList(props: EnvironmentGroupsListProps): React.
           resizable: true,
           autoHeight: true,
           wrapText: true,
-          cellStyle: { alignItems: "flex-start", paddingTop: "8px", paddingBottom: "8px" },
-          cellRenderer: (params: ICellRendererParams<EnvironmentGroupRow, number>) => {
+          cellStyle: {
+            alignItems: "flex-start",
+            paddingTop: "8px",
+            paddingBottom: "8px",
+          },
+          cellRenderer: (
+            params: ICellRendererParams<EnvironmentGroupRow, number>,
+          ) => {
             const row = params.data;
             if (!row) {
               return null;
             }
 
-            const count = typeof params.value === "number" ? params.value : row.environmentCount;
+            const count =
+              typeof params.value === "number"
+                ? params.value
+                : row.environmentCount;
             const names = row.environmentNames;
             const canExpand = count > 0 && names.length > 0;
             const isExpanded = Boolean(row.isExpanded);
@@ -279,7 +347,14 @@ export function EnvironmentGroupsList(props: EnvironmentGroupsListProps): React.
             }
 
             return (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  width: "100%",
+                }}
+              >
                 <Link
                   href="#"
                   onClick={(event) => {
@@ -291,7 +366,14 @@ export function EnvironmentGroupsList(props: EnvironmentGroupsListProps): React.
                   {isExpanded ? `- (${count})` : `+ (${count})`}
                 </Link>
                 {isExpanded && (
-                  <div style={{ fontSize: 12, lineHeight: 1.4, whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      lineHeight: 1.4,
+                      whiteSpace: "normal",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
                     {names.map((name) => (
                       <div key={name}>{name}</div>
                     ))}
@@ -302,7 +384,7 @@ export function EnvironmentGroupsList(props: EnvironmentGroupsListProps): React.
           },
         },
       ] satisfies ColDef<EnvironmentGroupRow>[],
-    [toggleExpanded, selectedRows, onCompareSelectedGroups]
+    [toggleExpanded, selectedRows, onCompareSelectedGroups],
   );
 
   if (isLoading) {
@@ -340,7 +422,12 @@ export function EnvironmentGroupsList(props: EnvironmentGroupsListProps): React.
           theme={theme}
           rowData={rows}
           columnDefs={columnDefs}
-          rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: false, enableClickSelection: false }}
+          rowSelection={{
+            mode: "multiRow",
+            checkboxes: true,
+            headerCheckbox: false,
+            enableClickSelection: false,
+          }}
           onRowClicked={onRowClicked}
           onSelectionChanged={onSelectionChanged}
           domLayout="normal"
