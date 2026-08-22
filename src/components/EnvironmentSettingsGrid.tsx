@@ -1,5 +1,9 @@
 import React from "react";
-import { ArrowUndoRegular, EditRegular, Save20Filled } from "@fluentui/react-icons";
+import {
+  ArrowUndoRegular,
+  EditRegular,
+  Save20Filled,
+} from "@fluentui/react-icons";
 import { Button, Badge, Input, Switch } from "@fluentui/react-components";
 import { AgGridReact } from "ag-grid-react";
 import { CustomCellRendererProps, CustomInnerHeaderProps } from "ag-grid-react";
@@ -34,12 +38,18 @@ interface EnvironmentSettingsGridProps {
   hasPendingChanges: boolean;
   hasSecondaryPendingChanges: boolean;
   onToggleEdit: (property: string, edit: boolean) => void;
-  onNewValueChange: (property: string, nextValue: EnvSettingValue, secondary?: boolean) => void;
+  onNewValueChange: (
+    property: string,
+    nextValue: EnvSettingValue,
+    secondary?: boolean,
+  ) => void;
   onSave: () => void;
   onSaveSecondary: () => void;
 }
 
-export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): React.JSX.Element => {
+export const EnvironmentSettingsGrid = (
+  props: EnvironmentSettingsGridProps,
+): React.JSX.Element => {
   const {
     isLoading,
     error,
@@ -58,15 +68,18 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
     onSaveSecondary,
   } = props;
 
-  const formatCurrentValueText = React.useCallback((value: EnvSettingValue): string => {
-    if (value === null || value === undefined) {
-      return "";
-    }
-    if (typeof value === "boolean") {
-      return value ? "true" : "false";
-    }
-    return String(value);
-  }, []);
+  const formatCurrentValueText = React.useCallback(
+    (value: EnvSettingValue): string => {
+      if (value === null || value === undefined) {
+        return "";
+      }
+      if (typeof value === "boolean") {
+        return value ? "true" : "false";
+      }
+      return String(value);
+    },
+    [],
+  );
 
   const getCompareCellStyle = React.useCallback(
     (leftValue: EnvSettingValue, rightValue?: EnvSettingValue) => {
@@ -74,8 +87,12 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
         return undefined;
       }
 
-      const leftText = leftValue === null || leftValue === undefined ? "" : String(leftValue);
-      const rightText = rightValue === null || rightValue === undefined ? "" : String(rightValue);
+      const leftText =
+        leftValue === null || leftValue === undefined ? "" : String(leftValue);
+      const rightText =
+        rightValue === null || rightValue === undefined
+          ? ""
+          : String(rightValue);
 
       if (leftText === rightText) {
         return undefined;
@@ -86,7 +103,7 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
         borderLeft: "3px solid #ffbf00",
       };
     },
-    [secondaryConnectionName]
+    [secondaryConnectionName],
   );
 
   const renderCompactValue = React.useCallback(
@@ -98,7 +115,7 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
         </span>
       );
     },
-    [formatCurrentValueText]
+    [formatCurrentValueText],
   );
 
   const saveHeaderButton = React.useCallback(
@@ -116,11 +133,15 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
           {params.displayName}
         </div>
         {hasPendingChanges && (
-          <Button icon={<Save20Filled />} disabled={isSaving} onClick={onSave} />
+          <Button
+            icon={<Save20Filled />}
+            disabled={isSaving}
+            onClick={onSave}
+          />
         )}
       </div>
     ),
-    [hasPendingChanges, isSaving, onSave]
+    [hasPendingChanges, isSaving, onSave],
   );
 
   const saveHeaderSecondaryButton = React.useCallback(
@@ -138,11 +159,15 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
           {params.displayName}
         </div>
         {hasSecondaryPendingChanges && (
-          <Button icon={<Save20Filled />} disabled={isSecondarySaving} onClick={onSaveSecondary} />
+          <Button
+            icon={<Save20Filled />}
+            disabled={isSecondarySaving}
+            onClick={onSaveSecondary}
+          />
         )}
       </div>
     ),
-    [hasSecondaryPendingChanges, isSecondarySaving, onSaveSecondary]
+    [hasSecondaryPendingChanges, isSecondarySaving, onSaveSecondary],
   );
 
   const renderValueControl = React.useCallback(
@@ -150,7 +175,7 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
       row: EnvApiGridRow,
       value: EnvSettingValue,
       onChange: (nextValue: EnvSettingValue) => void,
-      inputReadOnly = false
+      inputReadOnly = false,
     ) => {
       if (row.valueType === "boolean") {
         if (value === null) {
@@ -240,68 +265,79 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
         />
       );
     },
-    []
+    [],
   );
 
   const resolvedColumnDefs = React.useMemo(() => {
-    const secondaryHeaders: ColGroupDef<EnvApiGridRow>[] = secondaryConnectionName
-      ? [
-          {
-            headerName: secondaryConnectionName,
-            children: [
-              {
-                field: "secondaryCurrent",
-                headerName: "Current Value",
-                minWidth: 160,
-                flex: 1,
-                filter: true,
-                sortable: true,
-                resizable: true,
-                cellStyle: (params: { data?: EnvApiGridRow }) =>
-                  getCompareCellStyle(params.data?.secondaryCurrent ?? null, params.data?.current ?? undefined),
-                cellRenderer: (params: { value?: EnvSettingValue }) => {
-                  return renderCompactValue(params.value ?? null);
+    const secondaryHeaders: ColGroupDef<EnvApiGridRow>[] =
+      secondaryConnectionName
+        ? [
+            {
+              headerName: secondaryConnectionName,
+              children: [
+                {
+                  field: "secondaryCurrent",
+                  headerName: "Current Value",
+                  minWidth: 160,
+                  flex: 1,
+                  filter: true,
+                  sortable: true,
+                  resizable: true,
+                  cellStyle: (params: { data?: EnvApiGridRow }) =>
+                    getCompareCellStyle(
+                      params.data?.secondaryCurrent ?? null,
+                      params.data?.current ?? undefined,
+                    ),
+                  cellRenderer: (params: { value?: EnvSettingValue }) => {
+                    return renderCompactValue(params.value ?? null);
+                  },
                 },
-              },
-              {
-                field: "secondaryNew",
-                headerName: "New Value",
-                minWidth: 160,
-                flex: 1,
-                filter: true,
-                sortable: true,
-                resizable: true,
-                headerComponent: saveHeaderSecondaryButton,
-                cellStyle: (params: { data?: EnvApiGridRow }) =>
-                  getCompareCellStyle(params.data?.secondaryNew ?? null, params.data?.new ?? undefined),
-                cellRenderer: (params: { data?: EnvApiGridRow; value?: EnvSettingValue }) => {
-                  const row = params.data;
-                  const value = params.value;
+                {
+                  field: "secondaryNew",
+                  headerName: "New Value",
+                  minWidth: 160,
+                  flex: 1,
+                  filter: true,
+                  sortable: true,
+                  resizable: true,
+                  headerComponent: saveHeaderSecondaryButton,
+                  cellStyle: (params: { data?: EnvApiGridRow }) =>
+                    getCompareCellStyle(
+                      params.data?.secondaryNew ?? null,
+                      params.data?.new ?? undefined,
+                    ),
+                  cellRenderer: (params: {
+                    data?: EnvApiGridRow;
+                    value?: EnvSettingValue;
+                  }) => {
+                    const row = params.data;
+                    const value = params.value;
 
-                  if (!row) {
-                    return null;
-                  }
+                    if (!row) {
+                      return null;
+                    }
 
-                  if (row.editable === false) {
-                    return renderCompactValue(value ?? null);
-                  }
+                    if (row.editable === false) {
+                      return renderCompactValue(value ?? null);
+                    }
 
-                  if (!row.edit) {
-                    return renderCompactValue(value ?? null);
-                  }
+                    if (!row.edit) {
+                      return renderCompactValue(value ?? null);
+                    }
 
-                  return renderValueControl(
-                    row,
-                    value ?? null,
-                    (nextValue) => onNewValueChange(row.property, nextValue, true),
-                    false
-                  );
+                    return renderValueControl(
+                      row,
+                      value ?? null,
+                      (nextValue) =>
+                        onNewValueChange(row.property, nextValue, true),
+                      false,
+                    );
+                  },
                 },
-              },
-            ],
-          },
-        ]
-      : [];
+              ],
+            },
+          ]
+        : [];
 
     return [
       {
@@ -319,9 +355,15 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
           }
 
           return row.edit ? (
-            <Button icon={<ArrowUndoRegular />} onClick={() => onToggleEdit(row.property, false)} />
+            <Button
+              icon={<ArrowUndoRegular />}
+              onClick={() => onToggleEdit(row.property, false)}
+            />
           ) : (
-            <Button icon={<EditRegular />} onClick={() => onToggleEdit(row.property, true)} />
+            <Button
+              icon={<EditRegular />}
+              onClick={() => onToggleEdit(row.property, true)}
+            />
           );
         },
       },
@@ -334,7 +376,9 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
         sortable: false,
         resizable: false,
         cellRenderer: (params: CustomCellRendererProps<EnvApiGridRow>) => {
-          return params.data?.shortDescription ? <EnvironmentInfoPopup item={params.data} /> : null;
+          return params.data?.shortDescription ? (
+            <EnvironmentInfoPopup item={params.data} />
+          ) : null;
         },
       },
       {
@@ -361,7 +405,10 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
             sortable: true,
             resizable: true,
             cellStyle: (params: { data?: EnvApiGridRow }) =>
-              getCompareCellStyle(params.data?.current ?? null, params.data?.secondaryCurrent ?? undefined),
+              getCompareCellStyle(
+                params.data?.current ?? null,
+                params.data?.secondaryCurrent ?? undefined,
+              ),
             cellRenderer: (params: { value?: EnvSettingValue }) => {
               return renderCompactValue(params.value ?? null);
             },
@@ -376,8 +423,14 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
             resizable: true,
             headerComponent: saveHeaderButton,
             cellStyle: (params: { data?: EnvApiGridRow }) =>
-              getCompareCellStyle(params.data?.new ?? null, params.data?.secondaryNew ?? undefined),
-            cellRenderer: (params: { data?: EnvApiGridRow; value?: EnvSettingValue }) => {
+              getCompareCellStyle(
+                params.data?.new ?? null,
+                params.data?.secondaryNew ?? undefined,
+              ),
+            cellRenderer: (params: {
+              data?: EnvApiGridRow;
+              value?: EnvSettingValue;
+            }) => {
               const row = params.data;
               const value = params.value;
 
@@ -397,7 +450,7 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
                 row,
                 value ?? null,
                 (nextValue) => onNewValueChange(row.property, nextValue, false),
-                false
+                false,
               );
             },
           },
@@ -405,7 +458,16 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
       },
       ...secondaryHeaders,
     ] satisfies (ColDef<EnvApiGridRow> | ColGroupDef<EnvApiGridRow>)[];
-  }, [connectionName, onNewValueChange, onToggleEdit, renderCompactValue, renderValueControl, saveHeaderButton, saveHeaderSecondaryButton, secondaryConnectionName]);
+  }, [
+    connectionName,
+    onNewValueChange,
+    onToggleEdit,
+    renderCompactValue,
+    renderValueControl,
+    saveHeaderButton,
+    saveHeaderSecondaryButton,
+    secondaryConnectionName,
+  ]);
 
   if (isLoading) {
     return (
@@ -435,7 +497,7 @@ export const EnvironmentSettingsGrid = (props: EnvironmentSettingsGridProps): Re
           rowData={rows}
           columnDefs={resolvedColumnDefs}
           defaultColDef={{ wrapText: true, autoHeight: true }}
-          domLayout="autoHeight"
+          domLayout="normal"
           enableCellTextSelection={true}
           ensureDomOrder={true}
         />

@@ -8,11 +8,14 @@ import {
   themeQuartz,
 } from "ag-grid-community";
 import {
+  Button,
   Tab,
   TabList,
   SelectTabData,
   SelectTabEvent,
+  Tooltip,
 } from "@fluentui/react-components";
+import { Info16Regular } from "@fluentui/react-icons";
 import { dvService } from "../utils/dataverse";
 import { orgProp } from "../model/OrgSetting";
 import { observable, runInAction } from "mobx";
@@ -1144,6 +1147,19 @@ export const EnvManager = observer(
               <Tab value="environment-settings">Environment Settings API</Tab>
               {canShowEnvironmentGroupsTab && (
                 <Tab value="environment-groups">Environment Groups</Tab>
+              )}
+              {!canShowEnvironmentGroupsTab && envGroupsError && (
+                <Tooltip
+                  content="To enable the Environment Groups grid, you need to enable Power Platform API access."
+                  relationship="description"
+                >
+                  <Button
+                    appearance="transparent"
+                    aria-label="Environment Groups unavailable"
+                    icon={<Info16Regular />}
+                    size="small"
+                  />
+                </Tooltip>
               )}
             </TabList>
           )}
