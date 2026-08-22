@@ -887,9 +887,21 @@ export const PoliciesGrid = React.memo(
         : compareRows;
 
     const getCompareCellStyle = React.useCallback(
-      (leftValue: string | undefined, rightValue: string | undefined) => {
+      (
+        leftValue: string | undefined,
+        rightValue: string | undefined,
+        leftRuleExists: boolean,
+        rightRuleExists: boolean,
+      ) => {
         if (!groups[1]) {
           return undefined;
+        }
+
+        if (leftRuleExists !== rightRuleExists) {
+          return {
+            backgroundColor: "rgba(255, 193, 7, 0.18)",
+            borderLeft: "3px solid #ffbf00",
+          };
         }
 
         if ((leftValue ?? "") === (rightValue ?? "")) {
@@ -1041,6 +1053,12 @@ export const PoliciesGrid = React.memo(
                 secondary
                   ? params.data?.primaryRule?.currentValueString
                   : params.data?.secondaryRule?.currentValueString,
+                secondary
+                  ? params.data?.secondaryRule !== undefined
+                  : params.data?.primaryRule !== undefined,
+                secondary
+                  ? params.data?.primaryRule !== undefined
+                  : params.data?.secondaryRule !== undefined,
               ),
             cellRenderer: (
               params: CustomCellRendererProps<PolicyCompareRow>,
@@ -1067,6 +1085,12 @@ export const PoliciesGrid = React.memo(
                 secondary
                   ? params.data?.primaryRule?.newValueString
                   : params.data?.secondaryRule?.newValueString,
+                secondary
+                  ? params.data?.secondaryRule !== undefined
+                  : params.data?.primaryRule !== undefined,
+                secondary
+                  ? params.data?.primaryRule !== undefined
+                  : params.data?.secondaryRule !== undefined,
               ),
             cellRenderer: (
               params: CustomCellRendererProps<PolicyCompareRow>,
