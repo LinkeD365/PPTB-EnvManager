@@ -1,9 +1,18 @@
 import React from "react";
 import { observer } from "mobx-react";
 import { runInAction } from "mobx";
-import { ArrowUndoRegular, EditRegular, Save20Filled, Warning24Regular } from "@fluentui/react-icons";
+import {
+  ArrowUndoRegular,
+  EditRegular,
+  Save20Filled,
+  Warning24Regular,
+} from "@fluentui/react-icons";
 import { Button, Tooltip } from "@fluentui/react-components";
-import { AgGridReact, CustomCellRendererProps, CustomInnerHeaderProps } from "ag-grid-react";
+import {
+  AgGridReact,
+  CustomCellRendererProps,
+  CustomInnerHeaderProps,
+} from "ag-grid-react";
 import { ColGroupDef, Theme } from "ag-grid-community";
 import { orgProp } from "../model/OrgSetting";
 import { InputControl } from "./InputControl";
@@ -24,10 +33,16 @@ interface OrgSettingsGridProps {
   theme: Theme | "legacy";
   onSavePrimary: () => void;
   onSaveSecondary: () => void;
-  setItemNewValue: (item: orgProp, newValue: string, secondary?: boolean) => void;
+  setItemNewValue: (
+    item: orgProp,
+    newValue: string,
+    secondary?: boolean,
+  ) => void;
 }
 
-export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element => {
+export const OrgSettingsGrid = (
+  props: OrgSettingsGridProps,
+): React.JSX.Element => {
   const {
     rowData,
     connectionName,
@@ -45,8 +60,12 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
         return undefined;
       }
 
-      const leftText = leftValue === null || leftValue === undefined ? "" : String(leftValue);
-      const rightText = rightValue === null || rightValue === undefined ? "" : String(rightValue);
+      const leftText =
+        leftValue === null || leftValue === undefined ? "" : String(leftValue);
+      const rightText =
+        rightValue === null || rightValue === undefined
+          ? ""
+          : String(rightValue);
 
       if (leftText === rightText) {
         return undefined;
@@ -57,7 +76,7 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
         borderLeft: "3px solid #ffbf00",
       };
     },
-    [secondaryConnectionName]
+    [secondaryConnectionName],
   );
 
   const renderCompactValue = React.useCallback((value: unknown) => {
@@ -75,8 +94,18 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
     }
 
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", width: "100%" }}>
-        <Tooltip content="The Power Platform API is not available on this connection." relationship="label">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-start",
+          width: "100%",
+        }}
+      >
+        <Tooltip
+          content="The Power Platform API is not available on this connection."
+          relationship="label"
+        >
           <Button
             appearance="subtle"
             aria-label="The Power Platform API is not available on this connection."
@@ -88,59 +117,83 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
     );
   }, [isPowerPlatformApiUnavailable]);
 
-  const saveHeaderButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
-    return (
-      <div
-        className="customInnerHeaderGroup"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          minWidth: 0,
-        }}
-      >
-        <div className="org-grid-header-label" title={params.displayName}>{params.displayName}</div>
-        {rowData.some((op) => op.edit && op.new !== op.current) && (
-          <Button icon={<Save20Filled />} onClick={onSavePrimary} />
-        )}
-      </div>
-    );
-  });
+  const saveHeaderButton = observer(
+    (params: CustomInnerHeaderProps<orgProp>) => {
+      return (
+        <div
+          className="customInnerHeaderGroup"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            width: "100%",
+            minWidth: 0,
+          }}
+        >
+          <div className="org-grid-header-label" title={params.displayName}>
+            {params.displayName}
+          </div>
+          {rowData.some((op) => op.edit && op.new !== op.current) && (
+            <Button icon={<Save20Filled />} onClick={onSavePrimary} />
+          )}
+        </div>
+      );
+    },
+  );
 
-  const saveHeaderSecondaryButton = observer((params: CustomInnerHeaderProps<orgProp>) => {
-    return (
-      <div
-        className="customInnerHeaderGroup"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          minWidth: 0,
-        }}
-      >
-        <div className="org-grid-header-label" title={params.displayName}>{params.displayName}</div>
-        {rowData.some((op) => op.edit && op.secondaryNew !== op.secondaryCurrent) && (
-          <Button icon={<Save20Filled />} onClick={onSaveSecondary} />
-        )}
-      </div>
-    );
-  });
+  const saveHeaderSecondaryButton = observer(
+    (params: CustomInnerHeaderProps<orgProp>) => {
+      return (
+        <div
+          className="customInnerHeaderGroup"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            width: "100%",
+            minWidth: 0,
+          }}
+        >
+          <div className="org-grid-header-label" title={params.displayName}>
+            {params.displayName}
+          </div>
+          {rowData.some(
+            (op) => op.edit && op.secondaryNew !== op.secondaryCurrent,
+          ) && <Button icon={<Save20Filled />} onClick={onSaveSecondary} />}
+        </div>
+      );
+    },
+  );
 
   const cellIcon = observer((params: CustomCellRendererProps<orgProp>) => (
-    <div className="imgSpanLogo" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+    <div
+      className="imgSpanLogo"
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
       {params.data?.edit ? (
         <Button
           icon={<ArrowUndoRegular />}
-          onClick={() => params.data && setItemEdit(params.data, !params.data.edit)}
+          onClick={() =>
+            params.data && setItemEdit(params.data, !params.data.edit)
+          }
         />
       ) : (
-        <Button icon={<EditRegular />} onClick={() => params.data && setItemEdit(params.data, !params.data.edit)} />
+        <Button
+          icon={<EditRegular />}
+          onClick={() =>
+            params.data && setItemEdit(params.data, !params.data.edit)
+          }
+        />
       )}
     </div>
   ));
 
   const cellInfo = observer((params: CustomCellRendererProps<orgProp>) => (
-    <div className="imgCellInfo">{params.data && <InfoPopup item={params.data} />}</div>
+    <div className="imgCellInfo">
+      {params.data && <InfoPopup item={params.data} />}
+    </div>
   ));
 
   const columnDefs = React.useMemo(() => {
@@ -154,8 +207,13 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
                 headerName: "Current Value",
                 flex: 1,
                 minWidth: 160,
-                cellStyle: (params: { data?: orgProp }) => getCompareCellStyle(params.data?.secondaryCurrent ?? null, params.data?.current ?? undefined),
-                cellRenderer: (params: { value?: string }) => renderCompactValue(params.value),
+                cellStyle: (params: { data?: orgProp }) =>
+                  getCompareCellStyle(
+                    params.data?.secondaryCurrent ?? null,
+                    params.data?.current ?? undefined,
+                  ),
+                cellRenderer: (params: { value?: string }) =>
+                  renderCompactValue(params.value),
               },
               {
                 field: "secondaryNew",
@@ -163,10 +221,18 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
                 minWidth: 160,
                 headerName: "New Value",
                 headerComponent: saveHeaderSecondaryButton,
-                cellStyle: (params: { data?: orgProp }) => getCompareCellStyle(params.data?.secondaryNew ?? null, params.data?.new ?? undefined),
+                cellStyle: (params: { data?: orgProp }) =>
+                  getCompareCellStyle(
+                    params.data?.secondaryNew ?? null,
+                    params.data?.new ?? undefined,
+                  ),
                 cellRenderer: (params: { data: orgProp }) =>
                   params.data ? (
-                    <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={true} />
+                    <InputControl
+                      item={params.data}
+                      setItemNewValue={setItemNewValue}
+                      secondary={true}
+                    />
                   ) : null,
               },
             ],
@@ -179,15 +245,34 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
         headerName: "",
         headerGroupComponent: topLeftHeader,
         children: [
-          { colId: "Edit", resizable: false, width: 64, minWidth: 64, maxWidth: 64, sortable: false, headerName: "", cellRenderer: cellIcon },
-          { colId: "Info", resizable: false, width: 64, minWidth: 64, maxWidth: 64, sortable: false, headerName: "", cellRenderer: cellInfo },
+          {
+            colId: "Edit",
+            resizable: false,
+            width: 64,
+            minWidth: 64,
+            maxWidth: 64,
+            sortable: false,
+            headerName: "",
+            cellRenderer: cellIcon,
+          },
+          {
+            colId: "Info",
+            resizable: false,
+            width: 64,
+            minWidth: 64,
+            maxWidth: 64,
+            sortable: false,
+            headerName: "",
+            cellRenderer: cellInfo,
+          },
           {
             field: "name",
             headerName: "Name",
             filter: true,
             flex: 2,
             minWidth: 220,
-            cellRenderer: (params: { value?: string }) => renderCompactValue(params.value),
+            cellRenderer: (params: { value?: string }) =>
+              renderCompactValue(params.value),
           },
         ],
       },
@@ -199,8 +284,13 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
             headerName: "Current Value",
             flex: 1,
             minWidth: 160,
-            cellStyle: (params: { data?: orgProp }) => getCompareCellStyle(params.data?.current ?? null, params.data?.secondaryCurrent ?? undefined),
-            cellRenderer: (params: { value?: string }) => renderCompactValue(params.value),
+            cellStyle: (params: { data?: orgProp }) =>
+              getCompareCellStyle(
+                params.data?.current ?? null,
+                params.data?.secondaryCurrent ?? undefined,
+              ),
+            cellRenderer: (params: { value?: string }) =>
+              renderCompactValue(params.value),
           },
           {
             field: "new",
@@ -208,17 +298,35 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
             minWidth: 160,
             headerName: "New Value",
             headerComponent: saveHeaderButton,
-            cellStyle: (params: { data?: orgProp }) => getCompareCellStyle(params.data?.new ?? null, params.data?.secondaryNew ?? undefined),
+            cellStyle: (params: { data?: orgProp }) =>
+              getCompareCellStyle(
+                params.data?.new ?? null,
+                params.data?.secondaryNew ?? undefined,
+              ),
             cellRenderer: (params: { data: orgProp }) =>
               params.data ? (
-                <InputControl item={params.data} setItemNewValue={setItemNewValue} secondary={false} />
+                <InputControl
+                  item={params.data}
+                  setItemNewValue={setItemNewValue}
+                  secondary={false}
+                />
               ) : null,
           },
         ],
       },
       ...secondaryHeaders,
     ] as ColGroupDef<orgProp>[];
-  }, [secondaryConnectionName, connectionName, saveHeaderSecondaryButton, setItemNewValue, cellIcon, cellInfo, saveHeaderButton, topLeftHeader, renderCompactValue]);
+  }, [
+    secondaryConnectionName,
+    connectionName,
+    saveHeaderSecondaryButton,
+    setItemNewValue,
+    cellIcon,
+    cellInfo,
+    saveHeaderButton,
+    topLeftHeader,
+    renderCompactValue,
+  ]);
 
   return (
     <div className="org-grid-shell">
@@ -227,7 +335,7 @@ export const OrgSettingsGrid = (props: OrgSettingsGridProps): React.JSX.Element 
         rowData={rowData}
         columnDefs={columnDefs}
         defaultColDef={{ wrapText: true, autoHeight: true }}
-        domLayout="autoHeight"
+        domLayout="normal"
         enableCellTextSelection={true}
         ensureDomOrder={true}
       />
