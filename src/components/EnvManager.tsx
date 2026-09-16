@@ -1143,42 +1143,58 @@ export const EnvManager = observer(
         selectedEnvironmentGroups.length === 2);
     const registeredCurrentExport =
       currentGridExport?.id === selectedTab ? currentGridExport : undefined;
+    const organizationSettingsSheet = createOrgSettingsSheet(
+      viewModel.fullList,
+      connection.name,
+      secondaryConnection?.name,
+      showOnlyDifferences,
+    );
+    const environmentSettingsSheet = createEnvironmentSettingsSheet(
+      envApiRows,
+      connection.name,
+      envApiSecondaryLoaded ? secondaryConnection?.name : undefined,
+      showOnlyDifferences,
+    );
+    const environmentGroupsSheet =
+      createEnvironmentGroupsSheet(envGroupsRows);
     const currentExport =
       selectedTab === "environment-settings"
         ? {
             label: "Export Environment Settings",
             fileName: `environment-settings-${connection.name}`,
-            disabled:
-              !registeredCurrentExport ||
-              registeredCurrentExport.rowCount === 0,
+            disabled: registeredCurrentExport
+              ? registeredCurrentExport.rowCount === 0
+              : environmentSettingsSheet.rows.length === 0,
             getSheets: () =>
               registeredCurrentExport
                 ? [registeredCurrentExport.getSheet()]
-                : [],
+                : [environmentSettingsSheet],
           }
         : selectedTab === "environment-groups"
           ? {
               label: "Export Environment Groups",
               fileName: "environment-groups",
-              disabled:
-                !registeredCurrentExport ||
-                registeredCurrentExport.rowCount === 0,
+              disabled: registeredCurrentExport
+                ? registeredCurrentExport.rowCount === 0
+                : environmentGroupsSheet.rows.length === 0,
               getSheets: () =>
                 registeredCurrentExport
                   ? [registeredCurrentExport.getSheet()]
-                  : [],
+                  : [environmentGroupsSheet],
             }
           : {
               label: "Export Organization Settings",
               fileName: `organization-settings-${connection.name}`,
-              disabled:
-                !registeredCurrentExport ||
-                registeredCurrentExport.rowCount === 0,
+              disabled: registeredCurrentExport
+                ? registeredCurrentExport.rowCount === 0
+                : organizationSettingsSheet.rows.length === 0,
               getSheets: () =>
                 registeredCurrentExport
                   ? [registeredCurrentExport.getSheet()]
-                  : [],
+                  : [organizationSettingsSheet],
             };
+    const availableExportCount =
+      1 + Number(envApiLoaded) + Number(envGroupsLoaded);
     const allExportDisabled =
       viewModel.fullList.length === 0 &&
       (!envApiLoaded || envApiRows.length === 0) &&
@@ -1253,29 +1269,15 @@ export const EnvManager = observer(
                 disabled={currentExport.disabled}
                 allDisabled={allExportDisabled}
                 getCurrentSheets={currentExport.getSheets}
-                getAllSheets={() => [
-                  createOrgSettingsSheet(
-                    viewModel.fullList,
-                    connection.name,
-                    secondaryConnection?.name,
-                    showOnlyDifferences,
-                  ),
-                  ...(envApiLoaded
-                    ? [
-                        createEnvironmentSettingsSheet(
-                          envApiRows,
-                          connection.name,
-                          envApiSecondaryLoaded
-                            ? secondaryConnection?.name
-                            : undefined,
-                          showOnlyDifferences,
-                        ),
+                getAllSheets={
+                  availableExportCount > 1
+                    ? () => [
+                        organizationSettingsSheet,
+                        ...(envApiLoaded ? [environmentSettingsSheet] : []),
+                        ...(envGroupsLoaded ? [environmentGroupsSheet] : []),
                       ]
-                    : []),
-                  ...(envGroupsLoaded
-                    ? [createEnvironmentGroupsSheet(envGroupsRows)]
-                    : []),
-                ]}
+                    : undefined
+                }
               />
             )}
           </div>

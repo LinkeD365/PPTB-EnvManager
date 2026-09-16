@@ -75,45 +75,61 @@ export function ExcelExportButtons({
 
   return (
     <div className="grid-export-toolbar">
-      <Menu positioning="below-end">
-        <MenuTrigger disableButtonEnhancement>
-          {(triggerProps: MenuButtonProps) => (
-            <SplitButton
-              ref={buttonRef}
-              appearance="subtle"
-              size="small"
-              icon={<ArrowDownloadRegular />}
-              menuButton={{
-                ...triggerProps,
-                disabled: !getAllSheets || allDisabled || isExporting,
-              }}
-              primaryActionButton={{
-                disabled: disabled || isExporting,
-                onClick: () => {
-                  setExportScope("current");
+      {getAllSheets ? (
+        <Menu positioning="below-end">
+          <MenuTrigger disableButtonEnhancement>
+            {(triggerProps: MenuButtonProps) => (
+              <SplitButton
+                ref={buttonRef}
+                appearance="subtle"
+                size="small"
+                icon={<ArrowDownloadRegular />}
+                menuButton={{
+                  ...triggerProps,
+                  disabled: allDisabled || isExporting,
+                }}
+                primaryActionButton={{
+                  disabled: disabled || isExporting,
+                  onClick: () => {
+                    setExportScope("current");
+                    setFormatPickerOpen(true);
+                  },
+                }}
+              >
+                {isExporting ? "Exporting..." : currentLabel}
+              </SplitButton>
+            )}
+          </MenuTrigger>
+          <MenuPopover>
+            <MenuList>
+              <MenuItem
+                icon={<ArrowDownloadRegular />}
+                disabled={allDisabled || isExporting}
+                onClick={() => {
+                  setExportScope("all");
                   setFormatPickerOpen(true);
-                },
-              }}
-            >
-              {isExporting ? "Exporting..." : currentLabel}
-            </SplitButton>
-          )}
-        </MenuTrigger>
-        <MenuPopover>
-          <MenuList>
-            <MenuItem
-              icon={<ArrowDownloadRegular />}
-              disabled={!getAllSheets || allDisabled || isExporting}
-              onClick={() => {
-                setExportScope("all");
-                setFormatPickerOpen(true);
-              }}
-            >
-              Export all
-            </MenuItem>
-          </MenuList>
-        </MenuPopover>
-      </Menu>
+                }}
+              >
+                Export all
+              </MenuItem>
+            </MenuList>
+          </MenuPopover>
+        </Menu>
+      ) : (
+        <Button
+          ref={buttonRef}
+          appearance="subtle"
+          size="small"
+          icon={<ArrowDownloadRegular />}
+          disabled={disabled || isExporting}
+          onClick={() => {
+            setExportScope("current");
+            setFormatPickerOpen(true);
+          }}
+        >
+          {isExporting ? "Exporting..." : currentLabel}
+        </Button>
+      )}
       <Popover
         open={formatPickerOpen}
         onOpenChange={(_event, data) => setFormatPickerOpen(data.open)}
