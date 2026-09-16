@@ -1,16 +1,20 @@
 import React from "react";
 import {
+  Button,
   Menu,
   MenuItem,
   MenuList,
   MenuPopover,
   MenuTrigger,
+  Popover,
+  PopoverSurface,
   SplitButton,
   type MenuButtonProps,
 } from "@fluentui/react-components";
 import { ArrowDownloadRegular } from "@fluentui/react-icons";
 import {
-  exportExcelWorkbook,
+  exportGridData,
+  type ExportFormat,
   type ExcelSheet,
 } from "../utils/excelExport";
 
@@ -30,16 +34,32 @@ export function ExcelExportButtons({
   currentLabel,
 }: ExcelExportButtonsProps): React.JSX.Element {
   const [isExporting, setIsExporting] = React.useState(false);
+  const [formatPickerOpen, setFormatPickerOpen] = React.useState(false);
+  const [exportScope, setExportScope] = React.useState<"current" | "all">(
+    "current",
+  );
+  const buttonRef = React.useRef<HTMLButtonElement | HTMLAnchorElement>(null);
 
   const runExport = React.useCallback(
-    async (getSheets: () => ExcelSheet[], suffix = "") => {
+    async (format: ExportFormat) => {
+      const exportAll = exportScope === "all";
+      const getSheets = exportAll ? getAllSheets : getCurrentSheets;
+      if (!getSheets) {
+        return;
+      }
+
+      setFormatPickerOpen(false);
       setIsExporting(true);
       try {
-        await exportExcelWorkbook(`${fileName}${suffix}`, getSheets());
+        await exportGridData(
+          format,
+          `${fileName}${exportAll ? "-all" : ""}`,
+          getSheets(),
+        );
       } catch (error) {
-        console.error("[ExcelExport] export failed", error);
+        console.error("[GridExport] export failed", error);
         window.toolboxAPI.utils.showNotification({
-          title: "Excel export failed",
+          title: "Export failed",
           body: error instanceof Error ? error.message : String(error),
           type: "error",
           duration: 4000,
@@ -48,7 +68,7 @@ export function ExcelExportButtons({
         setIsExporting(false);
       }
     },
-    [fileName],
+    [exportScope, fileName, getAllSheets, getCurrentSheets],
   );
 
   return (
@@ -57,12 +77,16 @@ export function ExcelExportButtons({
         <MenuTrigger disableButtonEnhancement>
           {(triggerProps: MenuButtonProps) => (
             <SplitButton
+              ref={buttonRef}
               appearance="subtle"
               size="small"
               icon={<ArrowDownloadRegular />}
               menuButton={triggerProps}
               primaryActionButton={{
-                onClick: () => void runExport(getCurrentSheets),
+                onClick: () => {
+                  setExportScope("current");
+                  setFormatPickerOpen(true);
+                },
               }}
               disabled={disabled || isExporting}
             >
@@ -75,15 +99,51 @@ export function ExcelExportButtons({
             <MenuItem
               icon={<ArrowDownloadRegular />}
               disabled={!getAllSheets || disabled || isExporting}
-              onClick={() =>
-                getAllSheets && void runExport(getAllSheets, "-all")
-              }
+              onClick={() => {
+                setExportScope("all");
+                setFormatPickerOpen(true);
+              }}
             >
               Export all
             </MenuItem>
           </MenuList>
         </MenuPopover>
       </Menu>
+      <Popover
+        open={formatPickerOpen}
+        onOpenChange={(_event, data) => setFormatPickerOpen(data.open)}
+        positioning={{
+          position: "below",
+          align: "end",
+          target: buttonRef.current,
+        }}
+      >
+        <PopoverSurface tabIndex={-1}>
+          <div className="export-format-actions">
+            <Button
+              appearance="subtle"
+              icon={<ArrowDownloadRegular />}
+              onClick={() => void runExport("xlsx")}
+            >
+              Excel
+            </Button>
+            <Button
+              appearance="subtle"
+              icon={<ArrowDownloadRegular />}
+              onClick={() => void runExport("markdown")}
+            >
+              Markdown
+            </Button>
+            <Button
+              appearance="subtle"
+              icon={<ArrowDownloadRegular />}
+              onClick={() => void runExport("csv")}
+            >
+              CSV
+            </Button>
+          </div>
+        </PopoverSurface>
+      </Popover>
     </div>
   );
 }

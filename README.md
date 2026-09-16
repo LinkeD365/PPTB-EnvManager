@@ -55,11 +55,13 @@ Rule metadata is loaded from the governance UI configuration and a local fallbac
 - Hides empty learn-more links automatically
 - Keeps policy names readable when metadata is incomplete
 
-### Excel Export
+### Grid Export
 
-Each settings, environment group, policy, and connector grid can be exported to
-an Excel workbook. Combined exports create a separate worksheet for every
-loaded grid and preserve the current comparison and difference-filter context.
+Each settings, environment group, policy, and connector grid can be exported as
+Excel, Markdown, or CSV. Combined Excel exports create a separate worksheet for
+every loaded grid, combined Markdown exports create a section per grid, and
+combined CSV exports download one file per grid. Exports preserve the current
+comparison and difference-filter context.
 
 
 ## Notes
