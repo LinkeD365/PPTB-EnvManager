@@ -14,6 +14,11 @@ import {
 } from "ag-grid-community";
 import { Button, Link } from "@fluentui/react-components";
 import { DocumentBulletList16Regular } from "@fluentui/react-icons";
+import { ExcelExportButtons } from "./ExcelExportButtons";
+import {
+  getDisplayedGridRows,
+  type ExcelSheet,
+} from "../utils/excelExport";
 
 export interface EnvironmentGroupRow {
   environmentGroupId: string;
@@ -34,6 +39,28 @@ interface EnvironmentGroupsListProps {
   theme: Theme | "legacy";
   onShowPolicies: (row: EnvironmentGroupRow) => void;
   onCompareSelectedGroups: (rows: EnvironmentGroupRow[]) => void;
+}
+
+export function createEnvironmentGroupsSheet(
+  rows: EnvironmentGroupRow[],
+): ExcelSheet {
+  return {
+    name: "Environment Groups",
+    columns: [
+      { header: "Name", width: 34 },
+      { header: "ID", width: 38 },
+      { header: "Description", width: 52 },
+      { header: "Environment Count", width: 20 },
+      { header: "Environments", width: 44 },
+    ],
+    rows: rows.map((row) => [
+      row.displayName,
+      row.id,
+      row.description ?? "",
+      row.environmentCount,
+      row.environmentNames.join("\n"),
+    ]),
+  };
 }
 
 function toText(value: unknown): string {
@@ -171,6 +198,7 @@ export function EnvironmentGroupsList(
   const [selectedRows, setSelectedRows] = React.useState<EnvironmentGroupRow[]>(
     [],
   );
+  const gridRef = React.useRef<AgGridReact<EnvironmentGroupRow>>(null);
 
   const toggleExpanded = React.useCallback(
     (
@@ -418,7 +446,17 @@ export function EnvironmentGroupsList(
   if (isLoaded) {
     return (
       <div className="env-grid-shell" style={{ flex: 1, minHeight: 0 }}>
+        <ExcelExportButtons
+          fileName="environment-groups"
+          disabled={rows.length === 0}
+          getCurrentSheets={() => [
+            createEnvironmentGroupsSheet(
+              getDisplayedGridRows(gridRef.current?.api),
+            ),
+          ]}
+        />
         <AgGridReact<EnvironmentGroupRow>
+          ref={gridRef}
           theme={theme}
           rowData={rows}
           columnDefs={columnDefs}

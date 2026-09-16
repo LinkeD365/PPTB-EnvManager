@@ -18,8 +18,12 @@ import { Info16Regular } from "@fluentui/react-icons";
 import { dvService } from "../utils/dataverse";
 import { orgProp } from "../model/OrgSetting";
 import { observable, runInAction } from "mobx";
-import { OrgSettingsGrid } from "./OrgSettingsGrid";
 import {
+  createOrgSettingsSheet,
+  OrgSettingsGrid,
+} from "./OrgSettingsGrid";
+import {
+  createEnvironmentSettingsSheet,
   EnvironmentSettingsGrid,
   EnvApiGridRow,
 } from "./EnvironmentSettingsGrid";
@@ -30,12 +34,14 @@ import {
   updateEnvironmentManagementSettings,
 } from "../utils/environmentManagement";
 import {
+  createEnvironmentGroupsSheet,
   EnvironmentGroupsList,
   EnvironmentGroupRow,
   normalizeEnvironmentGroups,
 } from "./EnvironmentGroupsList";
 import { PoliciesGrid } from "./PoliciesGrid";
 import { ComparisonFilterSwitch } from "./ComparisonFilterButton";
+import { ExcelExportButtons } from "./ExcelExportButtons";
 
 interface EnvironmentGroupStats {
   count: number;
@@ -1180,6 +1186,41 @@ export const EnvManager = observer(
                 <ComparisonFilterSwitch
                   showOnlyDifferences={showOnlyDifferences}
                   onChange={setShowOnlyDifferences}
+                />
+              )}
+              {selectedEnvironmentGroups.length === 0 && (
+                <ExcelExportButtons
+                  fileName={`environment-manager-${connection.name}`}
+                  disabled={
+                    viewModel.fullList.length === 0 &&
+                    envApiRows.length === 0 &&
+                    envGroupsRows.length === 0
+                  }
+                  showCurrent={false}
+                  getCurrentSheets={() => []}
+                  getAllSheets={() => [
+                    createOrgSettingsSheet(
+                      viewModel.fullList,
+                      connection.name,
+                      secondaryConnection?.name,
+                      showOnlyDifferences,
+                    ),
+                    ...(envApiLoaded
+                      ? [
+                          createEnvironmentSettingsSheet(
+                            envApiRows,
+                            connection.name,
+                            envApiSecondaryLoaded
+                              ? secondaryConnection?.name
+                              : undefined,
+                            showOnlyDifferences,
+                          ),
+                        ]
+                      : []),
+                    ...(envGroupsLoaded
+                      ? [createEnvironmentGroupsSheet(envGroupsRows)]
+                      : []),
+                  ]}
                 />
               )}
             </div>

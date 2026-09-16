@@ -40,8 +40,13 @@ import {
 import { environmentManagement } from "../utils/environmentManagement";
 import { RuleSetInfoPopup } from "./Info";
 import { KnowledgeSourceEditor } from "./KnowledgeSourceEditor";
-import { ConnectorsGrid } from "./ConnectorsGrid";
+import { ConnectorsGrid, createConnectorsSheet } from "./ConnectorsGrid";
 import { comparisonValuesDiffer } from "./ComparisonFilterButton";
+import { ExcelExportButtons } from "./ExcelExportButtons";
+import {
+  getDisplayedGridRows,
+  type ExcelSheet,
+} from "../utils/excelExport";
 
 ModuleRegistry.registerModules([
   RowAutoHeightModule,
@@ -229,6 +234,59 @@ function getRuleValueLabel(rule: EnvGroupRuleRow, value: string): string {
     : value;
 }
 
+function createPoliciesSheet(
+  groups: EnvironmentGroupRow[],
+  rows: PolicyCompareRow[],
+): ExcelSheet {
+  return {
+    name: "Policies",
+    columns: [
+      { header: "Name", width: 42 },
+      { header: "Rule ID", width: 34 },
+      {
+        header: `${groups[0]?.displayName ?? "Primary Group"} - Current`,
+        width: 32,
+      },
+      {
+        header: `${groups[0]?.displayName ?? "Primary Group"} - New`,
+        width: 32,
+      },
+      ...(groups[1]
+        ? [
+            { header: `${groups[1].displayName} - Current`, width: 32 },
+            { header: `${groups[1].displayName} - New`, width: 32 },
+          ]
+        : []),
+    ],
+    rows: rows.map((row) => [
+      row.shortDescription,
+      row.ruleId,
+      row.primaryRule
+        ? getRuleValueLabel(row.primaryRule, row.primaryRule.currentValueString)
+        : "",
+      row.primaryRule
+        ? getRuleValueLabel(row.primaryRule, row.primaryRule.newValueString)
+        : "",
+      ...(groups[1]
+        ? [
+            row.secondaryRule
+              ? getRuleValueLabel(
+                  row.secondaryRule,
+                  row.secondaryRule.currentValueString,
+                )
+              : "",
+            row.secondaryRule
+              ? getRuleValueLabel(
+                  row.secondaryRule,
+                  row.secondaryRule.newValueString,
+                )
+              : "",
+          ]
+        : []),
+    ]),
+  };
+}
+
 function renderRuleValue(
   rule: EnvGroupRuleRow,
   value: string,
@@ -408,6 +466,7 @@ export const PoliciesGrid = React.memo(
     );
     const [saving, setSaving] = React.useState(false);
     const [savingSecondary, setSavingSecondary] = React.useState(false);
+    const policyGridRef = React.useRef<AgGridReact<PolicyCompareRow>>(null);
     const knowledgeEditorRef = React.useRef<KnowledgeSourceEditor>(null);
     const knowledgeEditorSecondaryRef = React.useRef(false);
     const updateRules = React.useCallback(
@@ -1236,9 +1295,29 @@ export const PoliciesGrid = React.memo(
               </div>
             )}
           </div>
+          <div style={{ marginLeft: "auto" }}>
+            <ExcelExportButtons
+              fileName={`environment-group-details-${groups[0]?.displayName ?? "group"}`}
+              disabled={
+                visibleCompareRows.length === 0 &&
+                connectors.length === 0 &&
+                secondaryConnectors.length === 0
+              }
+              showCurrent={false}
+              getCurrentSheets={() => []}
+              getAllSheets={() => [
+                createPoliciesSheet(groups, visibleCompareRows),
+                createConnectorsSheet(
+                  groups,
+                  connectors,
+                  secondaryConnectors,
+                  showOnlyDifferences,
+                ),
+              ]}
+            />
+          </div>
           <Button
             appearance="subtle"
-            style={{ marginLeft: "auto" }}
             icon={
               view === "policies" ? (
                 <PlugConnectedRegular />
@@ -1260,21 +1339,34 @@ export const PoliciesGrid = React.memo(
         </div>
         <div className="env-grid-shell" style={{ flex: 1, minHeight: 0 }}>
           {view === "policies" ? (
-            <AgGridReact<PolicyCompareRow>
-              theme={theme}
-              rowData={visibleCompareRows}
-              getRowId={getPolicyRowId}
-              columnDefs={policyGridColumnDefs}
-              defaultColDef={{
-                editable: false,
-                sortable: true,
-                resizable: true,
-                filter: true,
-              }}
-              domLayout="normal"
-              enableCellTextSelection={true}
-              ensureDomOrder={true}
-            />
+            <>
+              <ExcelExportButtons
+                fileName={`policies-${groups[0]?.displayName ?? "environment-group"}`}
+                disabled={visibleCompareRows.length === 0}
+                getCurrentSheets={() => [
+                  createPoliciesSheet(
+                    groups,
+                    getDisplayedGridRows(policyGridRef.current?.api),
+                  ),
+                ]}
+              />
+              <AgGridReact<PolicyCompareRow>
+                ref={policyGridRef}
+                theme={theme}
+                rowData={visibleCompareRows}
+                getRowId={getPolicyRowId}
+                columnDefs={policyGridColumnDefs}
+                defaultColDef={{
+                  editable: false,
+                  sortable: true,
+                  resizable: true,
+                  filter: true,
+                }}
+                domLayout="normal"
+                enableCellTextSelection={true}
+                ensureDomOrder={true}
+              />
+            </>
           ) : (
             <ConnectorsGrid
               theme={theme}
