@@ -122,6 +122,7 @@ export function ExcelExportButtons({
           <div className="export-format-actions">
             <Button
               appearance="subtle"
+              size="small"
               icon={<ArrowDownloadRegular />}
               onClick={() => void runExport("xlsx")}
             >
@@ -129,6 +130,7 @@ export function ExcelExportButtons({
             </Button>
             <Button
               appearance="subtle"
+              size="small"
               icon={<ArrowDownloadRegular />}
               onClick={() => void runExport("markdown")}
             >
@@ -136,6 +138,7 @@ export function ExcelExportButtons({
             </Button>
             <Button
               appearance="subtle"
+              size="small"
               icon={<ArrowDownloadRegular />}
               onClick={() => void runExport("csv")}
             >
