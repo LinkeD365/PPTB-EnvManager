@@ -14,7 +14,11 @@ import {
 } from "ag-grid-community";
 import { Button, Link } from "@fluentui/react-components";
 import { DocumentBulletList16Regular } from "@fluentui/react-icons";
-import { type ExcelSheet } from "../utils/excelExport";
+import {
+  getDisplayedGridRows,
+  type ExcelSheet,
+  type GridExportRegistration,
+} from "../utils/excelExport";
 
 export interface EnvironmentGroupRow {
   environmentGroupId: string;
@@ -35,6 +39,7 @@ interface EnvironmentGroupsListProps {
   theme: Theme | "legacy";
   onShowPolicies: (row: EnvironmentGroupRow) => void;
   onCompareSelectedGroups: (rows: EnvironmentGroupRow[]) => void;
+  onExportRegistration?: (registration: GridExportRegistration) => void;
 }
 
 export function createEnvironmentGroupsSheet(
@@ -190,10 +195,27 @@ export function EnvironmentGroupsList(
     theme,
     onShowPolicies,
     onCompareSelectedGroups,
+    onExportRegistration,
   } = props;
   const [selectedRows, setSelectedRows] = React.useState<EnvironmentGroupRow[]>(
     [],
   );
+  const gridRef = React.useRef<AgGridReact<EnvironmentGroupRow>>(null);
+  const registerExport = React.useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api || !onExportRegistration) {
+      return;
+    }
+
+    onExportRegistration({
+      id: "environment-groups",
+      rowCount: getDisplayedGridRows(api).length,
+      getSheet: () =>
+        createEnvironmentGroupsSheet(getDisplayedGridRows(api)),
+    });
+  }, [onExportRegistration]);
+
+  React.useEffect(registerExport, [registerExport]);
 
   const toggleExpanded = React.useCallback(
     (
@@ -442,6 +464,7 @@ export function EnvironmentGroupsList(
     return (
       <div className="env-grid-shell" style={{ flex: 1, minHeight: 0 }}>
         <AgGridReact<EnvironmentGroupRow>
+          ref={gridRef}
           theme={theme}
           rowData={rows}
           columnDefs={columnDefs}
@@ -456,6 +479,10 @@ export function EnvironmentGroupsList(
           domLayout="normal"
           enableCellTextSelection={true}
           ensureDomOrder={true}
+          onGridReady={registerExport}
+          onFilterChanged={registerExport}
+          onSortChanged={registerExport}
+          onModelUpdated={registerExport}
         />
       </div>
     );

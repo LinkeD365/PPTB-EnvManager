@@ -46,6 +46,7 @@ import { ExcelExportButtons } from "./ExcelExportButtons";
 import {
   getDisplayedGridRows,
   type ExcelSheet,
+  type GridExportRegistration,
 } from "../utils/excelExport";
 
 ModuleRegistry.registerModules([
@@ -467,6 +468,32 @@ export const PoliciesGrid = React.memo(
     const [saving, setSaving] = React.useState(false);
     const [savingSecondary, setSavingSecondary] = React.useState(false);
     const policyGridRef = React.useRef<AgGridReact<PolicyCompareRow>>(null);
+    const [policyExport, setPolicyExport] =
+      React.useState<GridExportRegistration | null>(null);
+    const [connectorExport, setConnectorExport] =
+      React.useState<GridExportRegistration | null>(null);
+    const updatePolicyExport = React.useCallback(
+      (registration: GridExportRegistration) =>
+        setPolicyExport((current) =>
+          current &&
+          current.contextKey === registration.contextKey &&
+          current.rowCount === registration.rowCount
+            ? current
+            : registration,
+        ),
+      [],
+    );
+    const updateConnectorExport = React.useCallback(
+      (registration: GridExportRegistration) =>
+        setConnectorExport((current) =>
+          current &&
+          current.contextKey === registration.contextKey &&
+          current.rowCount === registration.rowCount
+            ? current
+            : registration,
+        ),
+      [],
+    );
     const knowledgeEditorRef = React.useRef<KnowledgeSourceEditor>(null);
     const knowledgeEditorSecondaryRef = React.useRef(false);
     const updateRules = React.useCallback(
@@ -944,6 +971,34 @@ export const PoliciesGrid = React.memo(
               ),
           )
         : compareRows;
+    const allConnectorsSheet = React.useMemo(
+      () =>
+        createConnectorsSheet(
+          groups,
+          connectors,
+          secondaryConnectors,
+          showOnlyDifferences,
+        ),
+      [connectors, groups, secondaryConnectors, showOnlyDifferences],
+    );
+    const registerPolicyExport = React.useCallback(() => {
+      const api = policyGridRef.current?.api;
+      if (!api) {
+        return;
+      }
+
+      updatePolicyExport({
+        id: "policies",
+        contextKey: groups
+          .map((group) => group.environmentGroupId)
+          .join("|"),
+        rowCount: getDisplayedGridRows(api).length,
+        getSheet: () =>
+          createPoliciesSheet(groups, getDisplayedGridRows(api)),
+      });
+    }, [groups, updatePolicyExport]);
+
+    React.useEffect(registerPolicyExport, [registerPolicyExport]);
 
     const getCompareCellStyle = React.useCallback(
       (
@@ -1303,35 +1358,25 @@ export const PoliciesGrid = React.memo(
               }
               disabled={
                 view === "policies"
-                  ? visibleCompareRows.length === 0
-                  : connectors.length === 0 &&
-                    secondaryConnectors.length === 0
+                  ? !policyExport || policyExport.rowCount === 0
+                  : !connectorExport || connectorExport.rowCount === 0
+              }
+              allDisabled={
+                visibleCompareRows.length === 0 &&
+                allConnectorsSheet.rows.length === 0
               }
               getCurrentSheets={() =>
                 view === "policies"
-                  ? [
-                      createPoliciesSheet(
-                        groups,
-                        getDisplayedGridRows(policyGridRef.current?.api),
-                      ),
-                    ]
-                  : [
-                      createConnectorsSheet(
-                        groups,
-                        connectors,
-                        secondaryConnectors,
-                        showOnlyDifferences,
-                      ),
-                    ]
+                  ? policyExport
+                    ? [policyExport.getSheet()]
+                    : []
+                  : connectorExport
+                    ? [connectorExport.getSheet()]
+                    : []
               }
               getAllSheets={() => [
                 createPoliciesSheet(groups, visibleCompareRows),
-                createConnectorsSheet(
-                  groups,
-                  connectors,
-                  secondaryConnectors,
-                  showOnlyDifferences,
-                ),
+                allConnectorsSheet,
               ]}
             />
           </div>
@@ -1373,6 +1418,10 @@ export const PoliciesGrid = React.memo(
               domLayout="normal"
               enableCellTextSelection={true}
               ensureDomOrder={true}
+              onGridReady={registerPolicyExport}
+              onFilterChanged={registerPolicyExport}
+              onSortChanged={registerPolicyExport}
+              onModelUpdated={registerPolicyExport}
             />
           ) : (
             <ConnectorsGrid
@@ -1381,6 +1430,7 @@ export const PoliciesGrid = React.memo(
               connectors={connectors}
               secondaryConnectors={secondaryConnectors}
               showOnlyDifferences={showOnlyDifferences}
+              onExportRegistration={updateConnectorExport}
             />
           )}
         </div>

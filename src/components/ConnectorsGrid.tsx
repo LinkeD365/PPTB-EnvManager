@@ -3,7 +3,11 @@ import { AgGridReact } from "ag-grid-react";
 import { ColDef, ColGroupDef, Theme } from "ag-grid-community";
 import { EnvGroupPolicyConnectorRow } from "../utils/envMgmt";
 import { EnvironmentGroupRow } from "./EnvironmentGroupsList";
-import { type ExcelSheet } from "../utils/excelExport";
+import {
+  getDisplayedGridRows,
+  type ExcelSheet,
+  type GridExportRegistration,
+} from "../utils/excelExport";
 
 interface ConnectorsGridProps {
   groups: EnvironmentGroupRow[];
@@ -11,9 +15,10 @@ interface ConnectorsGridProps {
   secondaryConnectors: EnvGroupPolicyConnectorRow[];
   showOnlyDifferences: boolean;
   theme: Theme | "legacy";
+  onExportRegistration?: (registration: GridExportRegistration) => void;
 }
 
-interface PolicyConnectorGridRow {
+export interface PolicyConnectorGridRow {
   rowKey: string;
   connectorName: string;
   primaryConnector?: EnvGroupPolicyConnectorRow;
@@ -49,7 +54,7 @@ function createConnectorRows(
   return Array.from(rowsByPath.values());
 }
 
-function createConnectorSheetFromRows(
+export function createConnectorSheetFromRows(
   groups: EnvironmentGroupRow[],
   rows: PolicyConnectorGridRow[],
 ): ExcelSheet {
@@ -98,7 +103,9 @@ export function ConnectorsGrid({
   secondaryConnectors,
   showOnlyDifferences,
   theme,
+  onExportRegistration,
 }: ConnectorsGridProps): React.JSX.Element {
+  const gridRef = React.useRef<AgGridReact<PolicyConnectorGridRow>>(null);
   const rows = React.useMemo<PolicyConnectorGridRow[]>(() => {
     return createConnectorRows(connectors, secondaryConnectors);
   }, [connectors, secondaryConnectors]);
@@ -106,6 +113,22 @@ export function ConnectorsGrid({
     groups[1] && showOnlyDifferences
       ? rows.filter((row) => !row.primaryConnector || !row.secondaryConnector)
       : rows;
+  const registerExport = React.useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api || !onExportRegistration) {
+      return;
+    }
+
+    onExportRegistration({
+      id: "connectors",
+      contextKey: groups.map((group) => group.environmentGroupId).join("|"),
+      rowCount: getDisplayedGridRows(api).length,
+      getSheet: () =>
+        createConnectorSheetFromRows(groups, getDisplayedGridRows(api)),
+    });
+  }, [groups, onExportRegistration]);
+
+  React.useEffect(registerExport, [registerExport]);
 
   const getCompareCellStyle = React.useCallback(
     (leftValue: string | undefined, rightValue: string | undefined) => {
@@ -169,6 +192,7 @@ export function ConnectorsGrid({
 
   return (
     <AgGridReact<PolicyConnectorGridRow>
+      ref={gridRef}
       theme={theme}
       rowData={visibleRows}
       getRowId={(params) => params.data.rowKey}
@@ -182,6 +206,10 @@ export function ConnectorsGrid({
       domLayout="normal"
       enableCellTextSelection={true}
       ensureDomOrder={true}
+      onGridReady={registerExport}
+      onFilterChanged={registerExport}
+      onSortChanged={registerExport}
+      onModelUpdated={registerExport}
     />
   );
 }

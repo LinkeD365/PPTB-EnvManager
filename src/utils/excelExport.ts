@@ -16,6 +16,13 @@ export interface ExcelSheet {
 
 export type ExportFormat = "xlsx" | "markdown" | "csv";
 
+export interface GridExportRegistration {
+  id: string;
+  contextKey?: string;
+  rowCount: number;
+  getSheet: () => ExcelSheet;
+}
+
 function sanitizeFileName(fileName: string, extension: string): string {
   const sanitized = fileName
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
@@ -91,7 +98,7 @@ export async function exportExcelWorkbook(
 
 function getExportableSheets(sheets: ExcelSheet[]): ExcelSheet[] {
   const exportableSheets = sheets.filter(
-    (sheet) => sheet.columns.length > 0 && sheet.rows.length > 0,
+    (sheet) => sheet.columns.length > 0,
   );
   if (exportableSheets.length === 0) {
     throw new Error("There is no loaded grid data to export.");

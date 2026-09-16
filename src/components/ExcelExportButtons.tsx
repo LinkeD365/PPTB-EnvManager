@@ -23,6 +23,7 @@ interface ExcelExportButtonsProps {
   getCurrentSheets: () => ExcelSheet[];
   getAllSheets?: () => ExcelSheet[];
   disabled?: boolean;
+  allDisabled?: boolean;
   currentLabel: string;
 }
 
@@ -31,6 +32,7 @@ export function ExcelExportButtons({
   getCurrentSheets,
   getAllSheets,
   disabled = false,
+  allDisabled = false,
   currentLabel,
 }: ExcelExportButtonsProps): React.JSX.Element {
   const [isExporting, setIsExporting] = React.useState(false);
@@ -81,14 +83,17 @@ export function ExcelExportButtons({
               appearance="subtle"
               size="small"
               icon={<ArrowDownloadRegular />}
-              menuButton={triggerProps}
+              menuButton={{
+                ...triggerProps,
+                disabled: !getAllSheets || allDisabled || isExporting,
+              }}
               primaryActionButton={{
+                disabled: disabled || isExporting,
                 onClick: () => {
                   setExportScope("current");
                   setFormatPickerOpen(true);
                 },
               }}
-              disabled={disabled || isExporting}
             >
               {isExporting ? "Exporting..." : currentLabel}
             </SplitButton>
@@ -98,7 +103,7 @@ export function ExcelExportButtons({
           <MenuList>
             <MenuItem
               icon={<ArrowDownloadRegular />}
-              disabled={!getAllSheets || disabled || isExporting}
+              disabled={!getAllSheets || allDisabled || isExporting}
               onClick={() => {
                 setExportScope("all");
                 setFormatPickerOpen(true);
