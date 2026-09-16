@@ -61,8 +61,10 @@ export function ExcelExportButtons({
               size="small"
               icon={<ArrowDownloadRegular />}
               menuButton={triggerProps}
+              primaryActionButton={{
+                onClick: () => void runExport(getCurrentSheets),
+              }}
               disabled={disabled || isExporting}
-              onClick={() => void runExport(getCurrentSheets)}
             >
               {isExporting ? "Exporting..." : currentLabel}
             </SplitButton>
