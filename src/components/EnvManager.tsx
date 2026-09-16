@@ -1162,9 +1162,7 @@ export const EnvManager = observer(
         ? {
             label: "Export Environment Settings",
             fileName: `environment-settings-${connection.name}`,
-            disabled: registeredCurrentExport
-              ? registeredCurrentExport.rowCount === 0
-              : environmentSettingsSheet.rows.length === 0,
+            disabled: envApiRows.length === 0,
             getSheets: () =>
               registeredCurrentExport
                 ? [registeredCurrentExport.getSheet()]
@@ -1174,9 +1172,7 @@ export const EnvManager = observer(
           ? {
               label: "Export Environment Groups",
               fileName: "environment-groups",
-              disabled: registeredCurrentExport
-                ? registeredCurrentExport.rowCount === 0
-                : environmentGroupsSheet.rows.length === 0,
+              disabled: envGroupsRows.length === 0,
               getSheets: () =>
                 registeredCurrentExport
                   ? [registeredCurrentExport.getSheet()]
@@ -1185,9 +1181,7 @@ export const EnvManager = observer(
           : {
               label: "Export Organization Settings",
               fileName: `organization-settings-${connection.name}`,
-              disabled: registeredCurrentExport
-                ? registeredCurrentExport.rowCount === 0
-                : organizationSettingsSheet.rows.length === 0,
+              disabled: viewModel.fullList.length === 0,
               getSheets: () =>
                 registeredCurrentExport
                   ? [registeredCurrentExport.getSheet()]

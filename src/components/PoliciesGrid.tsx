@@ -1358,8 +1358,8 @@ export const PoliciesGrid = React.memo(
               }
               disabled={
                 view === "policies"
-                  ? !policyExport || policyExport.rowCount === 0
-                  : !connectorExport || connectorExport.rowCount === 0
+                  ? visibleCompareRows.length === 0
+                  : allConnectorsSheet.rows.length === 0
               }
               allDisabled={
                 visibleCompareRows.length === 0 &&
