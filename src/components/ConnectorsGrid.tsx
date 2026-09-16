@@ -3,6 +3,11 @@ import { AgGridReact } from "ag-grid-react";
 import { ColDef, ColGroupDef, Theme } from "ag-grid-community";
 import { EnvGroupPolicyConnectorRow } from "../utils/envMgmt";
 import { EnvironmentGroupRow } from "./EnvironmentGroupsList";
+import {
+  getDisplayedGridRows,
+  type ExcelSheet,
+  type GridExportRegistration,
+} from "../utils/excelExport";
 
 interface ConnectorsGridProps {
   groups: EnvironmentGroupRow[];
@@ -10,13 +15,86 @@ interface ConnectorsGridProps {
   secondaryConnectors: EnvGroupPolicyConnectorRow[];
   showOnlyDifferences: boolean;
   theme: Theme | "legacy";
+  onExportRegistration?: (registration: GridExportRegistration) => void;
 }
 
-interface PolicyConnectorGridRow {
+export interface PolicyConnectorGridRow {
   rowKey: string;
   connectorName: string;
   primaryConnector?: EnvGroupPolicyConnectorRow;
   secondaryConnector?: EnvGroupPolicyConnectorRow;
+}
+
+function createConnectorRows(
+  connectors: EnvGroupPolicyConnectorRow[],
+  secondaryConnectors: EnvGroupPolicyConnectorRow[],
+): PolicyConnectorGridRow[] {
+  const rowsByPath = new Map<string, PolicyConnectorGridRow>();
+
+  for (const connector of connectors) {
+    const rowKey = connector.connectorPath.toLowerCase();
+    rowsByPath.set(rowKey, {
+      rowKey,
+      connectorName: connector.connectorName,
+      primaryConnector: connector,
+    });
+  }
+
+  for (const connector of secondaryConnectors) {
+    const rowKey = connector.connectorPath.toLowerCase();
+    const existing = rowsByPath.get(rowKey);
+    rowsByPath.set(rowKey, {
+      rowKey,
+      connectorName: existing?.connectorName ?? connector.connectorName,
+      primaryConnector: existing?.primaryConnector,
+      secondaryConnector: connector,
+    });
+  }
+
+  return Array.from(rowsByPath.values());
+}
+
+export function createConnectorSheetFromRows(
+  groups: EnvironmentGroupRow[],
+  rows: PolicyConnectorGridRow[],
+): ExcelSheet {
+  return {
+    name: "Connectors",
+    columns: [
+      { header: "Connector", width: 34 },
+      {
+        header: `${groups[0]?.displayName ?? "Primary Group"} - Connector Path`,
+        width: 52,
+      },
+      ...(groups[1]
+        ? [
+            {
+              header: `${groups[1].displayName} - Connector Path`,
+              width: 52,
+            },
+          ]
+        : []),
+    ],
+    rows: rows.map((row) => [
+      row.connectorName,
+      row.primaryConnector?.connectorPath ?? "",
+      ...(groups[1] ? [row.secondaryConnector?.connectorPath ?? ""] : []),
+    ]),
+  };
+}
+
+export function createConnectorsSheet(
+  groups: EnvironmentGroupRow[],
+  connectors: EnvGroupPolicyConnectorRow[],
+  secondaryConnectors: EnvGroupPolicyConnectorRow[],
+  showOnlyDifferences = false,
+): ExcelSheet {
+  const rows = createConnectorRows(connectors, secondaryConnectors);
+  const exportRows =
+    groups[1] && showOnlyDifferences
+      ? rows.filter((row) => !row.primaryConnector || !row.secondaryConnector)
+      : rows;
+  return createConnectorSheetFromRows(groups, exportRows);
 }
 
 export function ConnectorsGrid({
@@ -25,36 +103,32 @@ export function ConnectorsGrid({
   secondaryConnectors,
   showOnlyDifferences,
   theme,
+  onExportRegistration,
 }: ConnectorsGridProps): React.JSX.Element {
+  const gridRef = React.useRef<AgGridReact<PolicyConnectorGridRow>>(null);
   const rows = React.useMemo<PolicyConnectorGridRow[]>(() => {
-    const rowsByPath = new Map<string, PolicyConnectorGridRow>();
-
-    for (const connector of connectors) {
-      const rowKey = connector.connectorPath.toLowerCase();
-      rowsByPath.set(rowKey, {
-        rowKey,
-        connectorName: connector.connectorName,
-        primaryConnector: connector,
-      });
-    }
-
-    for (const connector of secondaryConnectors) {
-      const rowKey = connector.connectorPath.toLowerCase();
-      const existing = rowsByPath.get(rowKey);
-      rowsByPath.set(rowKey, {
-        rowKey,
-        connectorName: existing?.connectorName ?? connector.connectorName,
-        primaryConnector: existing?.primaryConnector,
-        secondaryConnector: connector,
-      });
-    }
-
-    return Array.from(rowsByPath.values());
+    return createConnectorRows(connectors, secondaryConnectors);
   }, [connectors, secondaryConnectors]);
   const visibleRows =
     groups[1] && showOnlyDifferences
       ? rows.filter((row) => !row.primaryConnector || !row.secondaryConnector)
       : rows;
+  const registerExport = React.useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api || !onExportRegistration) {
+      return;
+    }
+
+    onExportRegistration({
+      id: "connectors",
+      contextKey: groups.map((group) => group.environmentGroupId).join("|"),
+      rowCount: getDisplayedGridRows(api).length,
+      getSheet: () =>
+        createConnectorSheetFromRows(groups, getDisplayedGridRows(api)),
+    });
+  }, [groups, onExportRegistration]);
+
+  React.useEffect(registerExport, [registerExport]);
 
   const getCompareCellStyle = React.useCallback(
     (leftValue: string | undefined, rightValue: string | undefined) => {
@@ -118,6 +192,7 @@ export function ConnectorsGrid({
 
   return (
     <AgGridReact<PolicyConnectorGridRow>
+      ref={gridRef}
       theme={theme}
       rowData={visibleRows}
       getRowId={(params) => params.data.rowKey}
@@ -131,6 +206,10 @@ export function ConnectorsGrid({
       domLayout="normal"
       enableCellTextSelection={true}
       ensureDomOrder={true}
+      onGridReady={registerExport}
+      onFilterChanged={registerExport}
+      onSortChanged={registerExport}
+      onModelUpdated={registerExport}
     />
   );
 }

@@ -10,6 +10,11 @@ import { CustomCellRendererProps, CustomInnerHeaderProps } from "ag-grid-react";
 import { ColDef, ColGroupDef, Theme } from "ag-grid-community";
 import { EnvironmentInfoPopup } from "./EnvironmentInfo";
 import { comparisonValuesDiffer } from "./ComparisonFilterButton";
+import {
+  getDisplayedGridRows,
+  type ExcelSheet,
+  type GridExportRegistration,
+} from "../utils/excelExport";
 
 export type EnvSettingValue = string | number | boolean | null;
 
@@ -47,6 +52,49 @@ interface EnvironmentSettingsGridProps {
   ) => void;
   onSave: () => void;
   onSaveSecondary: () => void;
+  onExportRegistration?: (registration: GridExportRegistration) => void;
+}
+
+export function createEnvironmentSettingsSheet(
+  rows: EnvApiGridRow[],
+  connectionName?: string,
+  secondaryConnectionName?: string,
+  showOnlyDifferences = false,
+): ExcelSheet {
+  const exportRows =
+    secondaryConnectionName && showOnlyDifferences
+      ? rows.filter(
+          (row) =>
+            comparisonValuesDiffer(row.current, row.secondaryCurrent) ||
+            comparisonValuesDiffer(row.new, row.secondaryNew),
+        )
+      : rows;
+
+  return {
+    name: "Environment Settings",
+    columns: [
+      { header: "Property", width: 42 },
+      { header: `${connectionName ?? "Primary Connection"} - Current`, width: 28 },
+      { header: `${connectionName ?? "Primary Connection"} - New`, width: 28 },
+      ...(secondaryConnectionName
+        ? [
+            {
+              header: `${secondaryConnectionName} - Current`,
+              width: 28,
+            },
+            { header: `${secondaryConnectionName} - New`, width: 28 },
+          ]
+        : []),
+    ],
+    rows: exportRows.map((row) => [
+      row.property,
+      row.current,
+      row.new,
+      ...(secondaryConnectionName
+        ? [row.secondaryCurrent ?? "", row.secondaryNew ?? ""]
+        : []),
+    ]),
+  };
 }
 
 export const EnvironmentSettingsGrid = (
@@ -69,7 +117,9 @@ export const EnvironmentSettingsGrid = (
     onNewValueChange,
     onSave,
     onSaveSecondary,
+    onExportRegistration,
   } = props;
+  const gridRef = React.useRef<AgGridReact<EnvApiGridRow>>(null);
   const visibleRows =
     secondaryConnectionName && showOnlyDifferences
       ? rows.filter(
@@ -78,6 +128,26 @@ export const EnvironmentSettingsGrid = (
             comparisonValuesDiffer(row.new, row.secondaryNew),
         )
       : rows;
+  const registerExport = React.useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api || !onExportRegistration) {
+      return;
+    }
+
+    onExportRegistration({
+      id: "environment-settings",
+      contextKey: `${connectionName ?? ""}|${secondaryConnectionName ?? ""}`,
+      rowCount: getDisplayedGridRows(api).length,
+      getSheet: () =>
+        createEnvironmentSettingsSheet(
+          getDisplayedGridRows(api),
+          connectionName,
+          secondaryConnectionName,
+        ),
+    });
+  }, [connectionName, onExportRegistration, secondaryConnectionName]);
+
+  React.useEffect(registerExport, [registerExport]);
 
   const formatCurrentValueText = React.useCallback(
     (value: EnvSettingValue): string => {
@@ -505,6 +575,7 @@ export const EnvironmentSettingsGrid = (
     return (
       <div className="env-grid-shell">
         <AgGridReact<EnvApiGridRow>
+          ref={gridRef}
           theme={theme}
           rowData={visibleRows}
           columnDefs={resolvedColumnDefs}
@@ -512,6 +583,10 @@ export const EnvironmentSettingsGrid = (
           domLayout="normal"
           enableCellTextSelection={true}
           ensureDomOrder={true}
+          onGridReady={registerExport}
+          onFilterChanged={registerExport}
+          onSortChanged={registerExport}
+          onModelUpdated={registerExport}
         />
       </div>
     );

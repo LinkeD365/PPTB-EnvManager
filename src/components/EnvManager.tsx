@@ -18,8 +18,12 @@ import { Info16Regular } from "@fluentui/react-icons";
 import { dvService } from "../utils/dataverse";
 import { orgProp } from "../model/OrgSetting";
 import { observable, runInAction } from "mobx";
-import { OrgSettingsGrid } from "./OrgSettingsGrid";
 import {
+  createOrgSettingsSheet,
+  OrgSettingsGrid,
+} from "./OrgSettingsGrid";
+import {
+  createEnvironmentSettingsSheet,
   EnvironmentSettingsGrid,
   EnvApiGridRow,
 } from "./EnvironmentSettingsGrid";
@@ -30,12 +34,15 @@ import {
   updateEnvironmentManagementSettings,
 } from "../utils/environmentManagement";
 import {
+  createEnvironmentGroupsSheet,
   EnvironmentGroupsList,
   EnvironmentGroupRow,
   normalizeEnvironmentGroups,
 } from "./EnvironmentGroupsList";
 import { PoliciesGrid } from "./PoliciesGrid";
 import { ComparisonFilterSwitch } from "./ComparisonFilterButton";
+import { ExcelExportButtons } from "./ExcelExportButtons";
+import { type GridExportRegistration } from "../utils/excelExport";
 
 interface EnvironmentGroupStats {
   count: number;
@@ -179,6 +186,19 @@ export const EnvManager = observer(
     const envApiInfoLookupRef = React.useRef(envApiInfoLookup);
     const [selectedEnvironmentGroups, setSelectedEnvironmentGroups] =
       React.useState<EnvironmentGroupRow[]>([]);
+    const [currentGridExport, setCurrentGridExport] =
+      React.useState<GridExportRegistration | null>(null);
+    const registerCurrentGridExport = React.useCallback(
+      (registration: GridExportRegistration) =>
+        setCurrentGridExport((current) =>
+          current?.id === registration.id &&
+          current.contextKey === registration.contextKey &&
+          current.rowCount === registration.rowCount
+            ? current
+            : registration,
+        ),
+      [],
+    );
     const envGroupStatsRef = React.useRef(envGroupStats);
 
     function formatGridValue(value: unknown): string | number | boolean | null {
@@ -1121,6 +1141,58 @@ export const EnvManager = observer(
       (selectedTab === "environment-settings" && envApiSecondaryLoaded) ||
       (selectedTab === "environment-groups" &&
         selectedEnvironmentGroups.length === 2);
+    const registeredCurrentExport =
+      currentGridExport?.id === selectedTab ? currentGridExport : undefined;
+    const organizationSettingsSheet = createOrgSettingsSheet(
+      viewModel.fullList,
+      connection.name,
+      secondaryConnection?.name,
+      showOnlyDifferences,
+    );
+    const environmentSettingsSheet = createEnvironmentSettingsSheet(
+      envApiRows,
+      connection.name,
+      envApiSecondaryLoaded ? secondaryConnection?.name : undefined,
+      showOnlyDifferences,
+    );
+    const environmentGroupsSheet =
+      createEnvironmentGroupsSheet(envGroupsRows);
+    const currentExport =
+      selectedTab === "environment-settings"
+        ? {
+            label: "Export Environment Settings",
+            fileName: `environment-settings-${connection.name}`,
+            disabled: envApiRows.length === 0,
+            getSheets: () =>
+              registeredCurrentExport
+                ? [registeredCurrentExport.getSheet()]
+                : [environmentSettingsSheet],
+          }
+        : selectedTab === "environment-groups"
+          ? {
+              label: "Export Environment Groups",
+              fileName: "environment-groups",
+              disabled: envGroupsRows.length === 0,
+              getSheets: () =>
+                registeredCurrentExport
+                  ? [registeredCurrentExport.getSheet()]
+                  : [environmentGroupsSheet],
+            }
+          : {
+              label: "Export Organization Settings",
+              fileName: `organization-settings-${connection.name}`,
+              disabled: viewModel.fullList.length === 0,
+              getSheets: () =>
+                registeredCurrentExport
+                  ? [registeredCurrentExport.getSheet()]
+                  : [organizationSettingsSheet],
+            };
+    const availableExportCount =
+      1 + Number(envApiLoaded) + Number(envGroupsLoaded);
+    const allExportDisabled =
+      viewModel.fullList.length === 0 &&
+      (!envApiLoaded || envApiRows.length === 0) &&
+      (!envGroupsLoaded || envGroupsRows.length === 0);
 
     return (
       <div
@@ -1141,8 +1213,8 @@ export const EnvManager = observer(
             flexDirection: "column",
           }}
         >
-          {showTabs && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {showTabs && (
               <TabList
                 selectedValue={selectedTab}
                 onTabSelect={(_event: SelectTabEvent, data: SelectTabData) =>
@@ -1176,14 +1248,33 @@ export const EnvManager = observer(
                   </Tooltip>
                 )}
               </TabList>
-              {canFilterDifferences && (
-                <ComparisonFilterSwitch
-                  showOnlyDifferences={showOnlyDifferences}
-                  onChange={setShowOnlyDifferences}
-                />
-              )}
-            </div>
-          )}
+            )}
+            {!showTabs && <div style={{ flex: 1 }} />}
+            {showTabs && canFilterDifferences && (
+              <ComparisonFilterSwitch
+                showOnlyDifferences={showOnlyDifferences}
+                onChange={setShowOnlyDifferences}
+              />
+            )}
+            {selectedEnvironmentGroups.length === 0 && (
+              <ExcelExportButtons
+                fileName={currentExport.fileName}
+                currentLabel={currentExport.label}
+                disabled={currentExport.disabled}
+                allDisabled={allExportDisabled}
+                getCurrentSheets={currentExport.getSheets}
+                getAllSheets={
+                  availableExportCount > 1
+                    ? () => [
+                        organizationSettingsSheet,
+                        ...(envApiLoaded ? [environmentSettingsSheet] : []),
+                        ...(envGroupsLoaded ? [environmentGroupsSheet] : []),
+                      ]
+                    : undefined
+                }
+              />
+            )}
+          </div>
 
           <div
             className="env-manager-tab-content"
@@ -1206,6 +1297,7 @@ export const EnvManager = observer(
                 onSavePrimary={() => saveOrgSettings()}
                 onSaveSecondary={() => saveOrgSettings(true)}
                 setItemNewValue={setItemNewValue}
+                onExportRegistration={registerCurrentGridExport}
               />
             )}
 
@@ -1243,6 +1335,7 @@ export const EnvManager = observer(
                   void saveEnvironmentSettings(true);
                 }}
                 theme={myTheme}
+                onExportRegistration={registerCurrentGridExport}
               />
             )}
 
@@ -1266,6 +1359,7 @@ export const EnvManager = observer(
                   onCompareSelectedGroups={(rows) =>
                     setSelectedEnvironmentGroups(rows)
                   }
+                  onExportRegistration={registerCurrentGridExport}
                 />
               ))}
           </div>

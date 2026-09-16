@@ -40,8 +40,14 @@ import {
 import { environmentManagement } from "../utils/environmentManagement";
 import { RuleSetInfoPopup } from "./Info";
 import { KnowledgeSourceEditor } from "./KnowledgeSourceEditor";
-import { ConnectorsGrid } from "./ConnectorsGrid";
+import { ConnectorsGrid, createConnectorsSheet } from "./ConnectorsGrid";
 import { comparisonValuesDiffer } from "./ComparisonFilterButton";
+import { ExcelExportButtons } from "./ExcelExportButtons";
+import {
+  getDisplayedGridRows,
+  type ExcelSheet,
+  type GridExportRegistration,
+} from "../utils/excelExport";
 
 ModuleRegistry.registerModules([
   RowAutoHeightModule,
@@ -229,6 +235,59 @@ function getRuleValueLabel(rule: EnvGroupRuleRow, value: string): string {
     : value;
 }
 
+function createPoliciesSheet(
+  groups: EnvironmentGroupRow[],
+  rows: PolicyCompareRow[],
+): ExcelSheet {
+  return {
+    name: "Policies",
+    columns: [
+      { header: "Name", width: 42 },
+      { header: "Rule ID", width: 34 },
+      {
+        header: `${groups[0]?.displayName ?? "Primary Group"} - Current`,
+        width: 32,
+      },
+      {
+        header: `${groups[0]?.displayName ?? "Primary Group"} - New`,
+        width: 32,
+      },
+      ...(groups[1]
+        ? [
+            { header: `${groups[1].displayName} - Current`, width: 32 },
+            { header: `${groups[1].displayName} - New`, width: 32 },
+          ]
+        : []),
+    ],
+    rows: rows.map((row) => [
+      row.shortDescription,
+      row.ruleId,
+      row.primaryRule
+        ? getRuleValueLabel(row.primaryRule, row.primaryRule.currentValueString)
+        : "",
+      row.primaryRule
+        ? getRuleValueLabel(row.primaryRule, row.primaryRule.newValueString)
+        : "",
+      ...(groups[1]
+        ? [
+            row.secondaryRule
+              ? getRuleValueLabel(
+                  row.secondaryRule,
+                  row.secondaryRule.currentValueString,
+                )
+              : "",
+            row.secondaryRule
+              ? getRuleValueLabel(
+                  row.secondaryRule,
+                  row.secondaryRule.newValueString,
+                )
+              : "",
+          ]
+        : []),
+    ]),
+  };
+}
+
 function renderRuleValue(
   rule: EnvGroupRuleRow,
   value: string,
@@ -408,6 +467,33 @@ export const PoliciesGrid = React.memo(
     );
     const [saving, setSaving] = React.useState(false);
     const [savingSecondary, setSavingSecondary] = React.useState(false);
+    const policyGridRef = React.useRef<AgGridReact<PolicyCompareRow>>(null);
+    const [policyExport, setPolicyExport] =
+      React.useState<GridExportRegistration | null>(null);
+    const [connectorExport, setConnectorExport] =
+      React.useState<GridExportRegistration | null>(null);
+    const updatePolicyExport = React.useCallback(
+      (registration: GridExportRegistration) =>
+        setPolicyExport((current) =>
+          current &&
+          current.contextKey === registration.contextKey &&
+          current.rowCount === registration.rowCount
+            ? current
+            : registration,
+        ),
+      [],
+    );
+    const updateConnectorExport = React.useCallback(
+      (registration: GridExportRegistration) =>
+        setConnectorExport((current) =>
+          current &&
+          current.contextKey === registration.contextKey &&
+          current.rowCount === registration.rowCount
+            ? current
+            : registration,
+        ),
+      [],
+    );
     const knowledgeEditorRef = React.useRef<KnowledgeSourceEditor>(null);
     const knowledgeEditorSecondaryRef = React.useRef(false);
     const updateRules = React.useCallback(
@@ -885,6 +971,34 @@ export const PoliciesGrid = React.memo(
               ),
           )
         : compareRows;
+    const allConnectorsSheet = React.useMemo(
+      () =>
+        createConnectorsSheet(
+          groups,
+          connectors,
+          secondaryConnectors,
+          showOnlyDifferences,
+        ),
+      [connectors, groups, secondaryConnectors, showOnlyDifferences],
+    );
+    const registerPolicyExport = React.useCallback(() => {
+      const api = policyGridRef.current?.api;
+      if (!api) {
+        return;
+      }
+
+      updatePolicyExport({
+        id: "policies",
+        contextKey: groups
+          .map((group) => group.environmentGroupId)
+          .join("|"),
+        rowCount: getDisplayedGridRows(api).length,
+        getSheet: () =>
+          createPoliciesSheet(groups, getDisplayedGridRows(api)),
+      });
+    }, [groups, updatePolicyExport]);
+
+    React.useEffect(registerPolicyExport, [registerPolicyExport]);
 
     const getCompareCellStyle = React.useCallback(
       (
@@ -1236,9 +1350,38 @@ export const PoliciesGrid = React.memo(
               </div>
             )}
           </div>
+          <div style={{ marginLeft: "auto" }}>
+            <ExcelExportButtons
+              fileName={`${view}-${groups[0]?.displayName ?? "group"}`}
+              currentLabel={
+                view === "policies" ? "Export Policies" : "Export Connectors"
+              }
+              disabled={
+                view === "policies"
+                  ? visibleCompareRows.length === 0
+                  : allConnectorsSheet.rows.length === 0
+              }
+              allDisabled={
+                visibleCompareRows.length === 0 &&
+                allConnectorsSheet.rows.length === 0
+              }
+              getCurrentSheets={() =>
+                view === "policies"
+                  ? policyExport
+                    ? [policyExport.getSheet()]
+                    : []
+                  : connectorExport
+                    ? [connectorExport.getSheet()]
+                    : []
+              }
+              getAllSheets={() => [
+                createPoliciesSheet(groups, visibleCompareRows),
+                allConnectorsSheet,
+              ]}
+            />
+          </div>
           <Button
             appearance="subtle"
-            style={{ marginLeft: "auto" }}
             icon={
               view === "policies" ? (
                 <PlugConnectedRegular />
@@ -1261,6 +1404,7 @@ export const PoliciesGrid = React.memo(
         <div className="env-grid-shell" style={{ flex: 1, minHeight: 0 }}>
           {view === "policies" ? (
             <AgGridReact<PolicyCompareRow>
+              ref={policyGridRef}
               theme={theme}
               rowData={visibleCompareRows}
               getRowId={getPolicyRowId}
@@ -1274,6 +1418,10 @@ export const PoliciesGrid = React.memo(
               domLayout="normal"
               enableCellTextSelection={true}
               ensureDomOrder={true}
+              onGridReady={registerPolicyExport}
+              onFilterChanged={registerPolicyExport}
+              onSortChanged={registerPolicyExport}
+              onModelUpdated={registerPolicyExport}
             />
           ) : (
             <ConnectorsGrid
@@ -1282,6 +1430,7 @@ export const PoliciesGrid = React.memo(
               connectors={connectors}
               secondaryConnectors={secondaryConnectors}
               showOnlyDifferences={showOnlyDifferences}
+              onExportRegistration={updateConnectorExport}
             />
           )}
         </div>

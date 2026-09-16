@@ -271,6 +271,26 @@ body {
   overflow: hidden;
 }
 
+.grid-export-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 32px;
+  padding-bottom: 4px;
+}
+
+.export-format-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.export-format-actions .fui-Button {
+  justify-content: flex-start;
+}
+
 .env-grid-shell .ag-root-wrapper,
 .env-grid-shell .ag-root-wrapper-body,
 .env-grid-shell .ag-center-cols-viewport,

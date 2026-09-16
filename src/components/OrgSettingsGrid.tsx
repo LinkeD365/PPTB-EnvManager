@@ -18,6 +18,11 @@ import { orgProp } from "../model/OrgSetting";
 import { InputControl } from "./InputControl";
 import { InfoPopup } from "./Info";
 import { comparisonValuesDiffer } from "./ComparisonFilterButton";
+import {
+  getDisplayedGridRows,
+  type ExcelSheet,
+  type GridExportRegistration,
+} from "../utils/excelExport";
 
 function setItemEdit(item: orgProp, edit: boolean) {
   runInAction(() => {
@@ -40,6 +45,52 @@ interface OrgSettingsGridProps {
     newValue: string,
     secondary?: boolean,
   ) => void;
+  onExportRegistration?: (registration: GridExportRegistration) => void;
+}
+
+export function createOrgSettingsSheet(
+  rows: orgProp[],
+  connectionName?: string,
+  secondaryConnectionName?: string,
+  showOnlyDifferences = false,
+): ExcelSheet {
+  const exportRows =
+    secondaryConnectionName && showOnlyDifferences
+      ? rows.filter(
+          (row) =>
+            comparisonValuesDiffer(row.current, row.secondaryCurrent) ||
+            comparisonValuesDiffer(row.new, row.secondaryNew),
+        )
+      : rows;
+
+  return {
+    name: "Organization Settings",
+    columns: [
+      { header: "Name", width: 36 },
+      { header: `${connectionName ?? "Primary Connection"} - Current`, width: 28 },
+      { header: `${connectionName ?? "Primary Connection"} - New`, width: 28 },
+      ...(secondaryConnectionName
+        ? [
+            {
+              header: `${secondaryConnectionName} - Current`,
+              width: 28,
+            },
+            { header: `${secondaryConnectionName} - New`, width: 28 },
+          ]
+        : []),
+    ],
+    rows: exportRows.map((row) => [
+      row.name,
+      row.current,
+      row.new ?? row.current,
+      ...(secondaryConnectionName
+        ? [
+            row.secondaryCurrent ?? "",
+            row.secondaryNew ?? row.secondaryCurrent ?? "",
+          ]
+        : []),
+    ]),
+  };
 }
 
 export const OrgSettingsGrid = (
@@ -55,7 +106,9 @@ export const OrgSettingsGrid = (
     onSavePrimary,
     onSaveSecondary,
     setItemNewValue,
+    onExportRegistration,
   } = props;
+  const gridRef = React.useRef<AgGridReact<orgProp>>(null);
   const visibleRows =
     secondaryConnectionName && showOnlyDifferences
       ? rowData.filter(
@@ -64,6 +117,26 @@ export const OrgSettingsGrid = (
             comparisonValuesDiffer(row.new, row.secondaryNew),
         )
       : rowData;
+  const registerExport = React.useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api || !onExportRegistration) {
+      return;
+    }
+
+    onExportRegistration({
+      id: "org-settings",
+      contextKey: `${connectionName ?? ""}|${secondaryConnectionName ?? ""}`,
+      rowCount: getDisplayedGridRows(api).length,
+      getSheet: () =>
+        createOrgSettingsSheet(
+          getDisplayedGridRows(api),
+          connectionName,
+          secondaryConnectionName,
+        ),
+    });
+  }, [connectionName, onExportRegistration, secondaryConnectionName]);
+
+  React.useEffect(registerExport, [registerExport]);
 
   const getCompareCellStyle = React.useCallback(
     (leftValue: unknown, rightValue?: unknown) => {
@@ -343,6 +416,7 @@ export const OrgSettingsGrid = (
   return (
     <div className="org-grid-shell">
       <AgGridReact<orgProp>
+        ref={gridRef}
         theme={theme}
         rowData={visibleRows}
         columnDefs={columnDefs}
@@ -350,6 +424,10 @@ export const OrgSettingsGrid = (
         domLayout="normal"
         enableCellTextSelection={true}
         ensureDomOrder={true}
+        onGridReady={registerExport}
+        onFilterChanged={registerExport}
+        onSortChanged={registerExport}
+        onModelUpdated={registerExport}
       />
     </div>
   );

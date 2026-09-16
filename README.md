@@ -11,6 +11,7 @@ A Power Platform Tool Box tool which allows you to edit some behind the scenes s
 - ✅ Compare Connectors in Environment Groups highlighting differences
 - ✅ Compare primary and secondary environments side-by-side
 - ✅ Rule-based policy and rule set updates through the Power Platform Governance APIs
+- ✅ Excel export for individual grids or all loaded grids in one workbook
 - ✅ Inline setting guidance from Microsoft, LinkeD365, and governance metadata sources
 - ✅ Automatic fallback when Environment Management API is unavailable
 
@@ -53,6 +54,14 @@ Rule metadata is loaded from the governance UI configuration and a local fallbac
 - Shows policy help text and docs links in the info popup
 - Hides empty learn-more links automatically
 - Keeps policy names readable when metadata is incomplete
+
+### Grid Export
+
+Each settings, environment group, policy, and connector grid can be exported as
+Excel, Markdown, or CSV. Combined Excel exports create a separate worksheet for
+every loaded grid, combined Markdown exports create a section per grid, and
+combined CSV exports download one file per grid. Exports preserve the current
+comparison and difference-filter context.
 
 
 ## Notes
