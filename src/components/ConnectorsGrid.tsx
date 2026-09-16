@@ -3,11 +3,7 @@ import { AgGridReact } from "ag-grid-react";
 import { ColDef, ColGroupDef, Theme } from "ag-grid-community";
 import { EnvGroupPolicyConnectorRow } from "../utils/envMgmt";
 import { EnvironmentGroupRow } from "./EnvironmentGroupsList";
-import { ExcelExportButtons } from "./ExcelExportButtons";
-import {
-  getDisplayedGridRows,
-  type ExcelSheet,
-} from "../utils/excelExport";
+import { type ExcelSheet } from "../utils/excelExport";
 
 interface ConnectorsGridProps {
   groups: EnvironmentGroupRow[];
@@ -103,7 +99,6 @@ export function ConnectorsGrid({
   showOnlyDifferences,
   theme,
 }: ConnectorsGridProps): React.JSX.Element {
-  const gridRef = React.useRef<AgGridReact<PolicyConnectorGridRow>>(null);
   const rows = React.useMemo<PolicyConnectorGridRow[]>(() => {
     return createConnectorRows(connectors, secondaryConnectors);
   }, [connectors, secondaryConnectors]);
@@ -173,33 +168,20 @@ export function ConnectorsGrid({
   }, [getCompareCellStyle, groups]);
 
   return (
-    <>
-      <ExcelExportButtons
-        fileName={`connectors-${groups[0]?.displayName ?? "environment-group"}`}
-        disabled={visibleRows.length === 0}
-        getCurrentSheets={() => [
-          createConnectorSheetFromRows(
-            groups,
-            getDisplayedGridRows(gridRef.current?.api),
-          ),
-        ]}
-      />
-      <AgGridReact<PolicyConnectorGridRow>
-        ref={gridRef}
-        theme={theme}
-        rowData={visibleRows}
-        getRowId={(params) => params.data.rowKey}
-        columnDefs={columnDefs}
-        defaultColDef={{
-          editable: false,
-          sortable: true,
-          resizable: true,
-          filter: true,
-        }}
-        domLayout="normal"
-        enableCellTextSelection={true}
-        ensureDomOrder={true}
-      />
-    </>
+    <AgGridReact<PolicyConnectorGridRow>
+      theme={theme}
+      rowData={visibleRows}
+      getRowId={(params) => params.data.rowKey}
+      columnDefs={columnDefs}
+      defaultColDef={{
+        editable: false,
+        sortable: true,
+        resizable: true,
+        filter: true,
+      }}
+      domLayout="normal"
+      enableCellTextSelection={true}
+      ensureDomOrder={true}
+    />
   );
 }

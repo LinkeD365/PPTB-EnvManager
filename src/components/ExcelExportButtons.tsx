@@ -1,5 +1,13 @@
 import React from "react";
-import { Button } from "@fluentui/react-components";
+import {
+  Menu,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
+  SplitButton,
+  type MenuButtonProps,
+} from "@fluentui/react-components";
 import { ArrowDownloadRegular } from "@fluentui/react-icons";
 import {
   exportExcelWorkbook,
@@ -11,7 +19,7 @@ interface ExcelExportButtonsProps {
   getCurrentSheets: () => ExcelSheet[];
   getAllSheets?: () => ExcelSheet[];
   disabled?: boolean;
-  showCurrent?: boolean;
+  currentLabel: string;
 }
 
 export function ExcelExportButtons({
@@ -19,7 +27,7 @@ export function ExcelExportButtons({
   getCurrentSheets,
   getAllSheets,
   disabled = false,
-  showCurrent = true,
+  currentLabel,
 }: ExcelExportButtonsProps): React.JSX.Element {
   const [isExporting, setIsExporting] = React.useState(false);
 
@@ -45,28 +53,35 @@ export function ExcelExportButtons({
 
   return (
     <div className="grid-export-toolbar">
-      {showCurrent && (
-        <Button
-          appearance="subtle"
-          size="small"
-          icon={<ArrowDownloadRegular />}
-          disabled={disabled || isExporting}
-          onClick={() => void runExport(getCurrentSheets)}
-        >
-          {isExporting ? "Exporting..." : "Export grid"}
-        </Button>
-      )}
-      {getAllSheets && (
-        <Button
-          appearance="subtle"
-          size="small"
-          icon={<ArrowDownloadRegular />}
-          disabled={disabled || isExporting}
-          onClick={() => void runExport(getAllSheets, "-all")}
-        >
-          Export all
-        </Button>
-      )}
+      <Menu positioning="below-end">
+        <MenuTrigger disableButtonEnhancement>
+          {(triggerProps: MenuButtonProps) => (
+            <SplitButton
+              appearance="subtle"
+              size="small"
+              icon={<ArrowDownloadRegular />}
+              menuButton={triggerProps}
+              disabled={disabled || isExporting}
+              onClick={() => void runExport(getCurrentSheets)}
+            >
+              {isExporting ? "Exporting..." : currentLabel}
+            </SplitButton>
+          )}
+        </MenuTrigger>
+        <MenuPopover>
+          <MenuList>
+            <MenuItem
+              icon={<ArrowDownloadRegular />}
+              disabled={!getAllSheets || disabled || isExporting}
+              onClick={() =>
+                getAllSheets && void runExport(getAllSheets, "-all")
+              }
+            >
+              Export all
+            </MenuItem>
+          </MenuList>
+        </MenuPopover>
+      </Menu>
     </div>
   );
 }

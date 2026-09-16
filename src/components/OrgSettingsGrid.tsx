@@ -18,11 +18,7 @@ import { orgProp } from "../model/OrgSetting";
 import { InputControl } from "./InputControl";
 import { InfoPopup } from "./Info";
 import { comparisonValuesDiffer } from "./ComparisonFilterButton";
-import { ExcelExportButtons } from "./ExcelExportButtons";
-import {
-  getDisplayedGridRows,
-  type ExcelSheet,
-} from "../utils/excelExport";
+import { type ExcelSheet } from "../utils/excelExport";
 
 function setItemEdit(item: orgProp, edit: boolean) {
   runInAction(() => {
@@ -106,7 +102,6 @@ export const OrgSettingsGrid = (
     onSaveSecondary,
     setItemNewValue,
   } = props;
-  const gridRef = React.useRef<AgGridReact<orgProp>>(null);
   const visibleRows =
     secondaryConnectionName && showOnlyDifferences
       ? rowData.filter(
@@ -393,19 +388,7 @@ export const OrgSettingsGrid = (
 
   return (
     <div className="org-grid-shell">
-      <ExcelExportButtons
-        fileName={`organization-settings-${connectionName ?? "environment"}`}
-        disabled={visibleRows.length === 0}
-        getCurrentSheets={() => [
-          createOrgSettingsSheet(
-            getDisplayedGridRows(gridRef.current?.api),
-            connectionName,
-            secondaryConnectionName,
-          ),
-        ]}
-      />
       <AgGridReact<orgProp>
-        ref={gridRef}
         theme={theme}
         rowData={visibleRows}
         columnDefs={columnDefs}

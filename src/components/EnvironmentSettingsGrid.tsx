@@ -10,11 +10,7 @@ import { CustomCellRendererProps, CustomInnerHeaderProps } from "ag-grid-react";
 import { ColDef, ColGroupDef, Theme } from "ag-grid-community";
 import { EnvironmentInfoPopup } from "./EnvironmentInfo";
 import { comparisonValuesDiffer } from "./ComparisonFilterButton";
-import { ExcelExportButtons } from "./ExcelExportButtons";
-import {
-  getDisplayedGridRows,
-  type ExcelSheet,
-} from "../utils/excelExport";
+import { type ExcelSheet } from "../utils/excelExport";
 
 export type EnvSettingValue = string | number | boolean | null;
 
@@ -117,7 +113,6 @@ export const EnvironmentSettingsGrid = (
     onSave,
     onSaveSecondary,
   } = props;
-  const gridRef = React.useRef<AgGridReact<EnvApiGridRow>>(null);
   const visibleRows =
     secondaryConnectionName && showOnlyDifferences
       ? rows.filter(
@@ -552,19 +547,7 @@ export const EnvironmentSettingsGrid = (
   if (isLoaded && !error) {
     return (
       <div className="env-grid-shell">
-        <ExcelExportButtons
-          fileName={`environment-settings-${connectionName ?? "environment"}`}
-          disabled={visibleRows.length === 0}
-          getCurrentSheets={() => [
-            createEnvironmentSettingsSheet(
-              getDisplayedGridRows(gridRef.current?.api),
-              connectionName,
-              secondaryConnectionName,
-            ),
-          ]}
-        />
         <AgGridReact<EnvApiGridRow>
-          ref={gridRef}
           theme={theme}
           rowData={visibleRows}
           columnDefs={resolvedColumnDefs}

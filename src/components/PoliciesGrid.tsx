@@ -1297,14 +1297,33 @@ export const PoliciesGrid = React.memo(
           </div>
           <div style={{ marginLeft: "auto" }}>
             <ExcelExportButtons
-              fileName={`environment-group-details-${groups[0]?.displayName ?? "group"}`}
-              disabled={
-                visibleCompareRows.length === 0 &&
-                connectors.length === 0 &&
-                secondaryConnectors.length === 0
+              fileName={`${view}-${groups[0]?.displayName ?? "group"}`}
+              currentLabel={
+                view === "policies" ? "Export Policies" : "Export Connectors"
               }
-              showCurrent={false}
-              getCurrentSheets={() => []}
+              disabled={
+                view === "policies"
+                  ? visibleCompareRows.length === 0
+                  : connectors.length === 0 &&
+                    secondaryConnectors.length === 0
+              }
+              getCurrentSheets={() =>
+                view === "policies"
+                  ? [
+                      createPoliciesSheet(
+                        groups,
+                        getDisplayedGridRows(policyGridRef.current?.api),
+                      ),
+                    ]
+                  : [
+                      createConnectorsSheet(
+                        groups,
+                        connectors,
+                        secondaryConnectors,
+                        showOnlyDifferences,
+                      ),
+                    ]
+              }
               getAllSheets={() => [
                 createPoliciesSheet(groups, visibleCompareRows),
                 createConnectorsSheet(
@@ -1339,34 +1358,22 @@ export const PoliciesGrid = React.memo(
         </div>
         <div className="env-grid-shell" style={{ flex: 1, minHeight: 0 }}>
           {view === "policies" ? (
-            <>
-              <ExcelExportButtons
-                fileName={`policies-${groups[0]?.displayName ?? "environment-group"}`}
-                disabled={visibleCompareRows.length === 0}
-                getCurrentSheets={() => [
-                  createPoliciesSheet(
-                    groups,
-                    getDisplayedGridRows(policyGridRef.current?.api),
-                  ),
-                ]}
-              />
-              <AgGridReact<PolicyCompareRow>
-                ref={policyGridRef}
-                theme={theme}
-                rowData={visibleCompareRows}
-                getRowId={getPolicyRowId}
-                columnDefs={policyGridColumnDefs}
-                defaultColDef={{
-                  editable: false,
-                  sortable: true,
-                  resizable: true,
-                  filter: true,
-                }}
-                domLayout="normal"
-                enableCellTextSelection={true}
-                ensureDomOrder={true}
-              />
-            </>
+            <AgGridReact<PolicyCompareRow>
+              ref={policyGridRef}
+              theme={theme}
+              rowData={visibleCompareRows}
+              getRowId={getPolicyRowId}
+              columnDefs={policyGridColumnDefs}
+              defaultColDef={{
+                editable: false,
+                sortable: true,
+                resizable: true,
+                filter: true,
+              }}
+              domLayout="normal"
+              enableCellTextSelection={true}
+              ensureDomOrder={true}
+            />
           ) : (
             <ConnectorsGrid
               theme={theme}

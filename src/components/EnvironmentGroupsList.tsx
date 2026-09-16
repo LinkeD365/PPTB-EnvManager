@@ -14,11 +14,7 @@ import {
 } from "ag-grid-community";
 import { Button, Link } from "@fluentui/react-components";
 import { DocumentBulletList16Regular } from "@fluentui/react-icons";
-import { ExcelExportButtons } from "./ExcelExportButtons";
-import {
-  getDisplayedGridRows,
-  type ExcelSheet,
-} from "../utils/excelExport";
+import { type ExcelSheet } from "../utils/excelExport";
 
 export interface EnvironmentGroupRow {
   environmentGroupId: string;
@@ -198,7 +194,6 @@ export function EnvironmentGroupsList(
   const [selectedRows, setSelectedRows] = React.useState<EnvironmentGroupRow[]>(
     [],
   );
-  const gridRef = React.useRef<AgGridReact<EnvironmentGroupRow>>(null);
 
   const toggleExpanded = React.useCallback(
     (
@@ -446,17 +441,7 @@ export function EnvironmentGroupsList(
   if (isLoaded) {
     return (
       <div className="env-grid-shell" style={{ flex: 1, minHeight: 0 }}>
-        <ExcelExportButtons
-          fileName="environment-groups"
-          disabled={rows.length === 0}
-          getCurrentSheets={() => [
-            createEnvironmentGroupsSheet(
-              getDisplayedGridRows(gridRef.current?.api),
-            ),
-          ]}
-        />
         <AgGridReact<EnvironmentGroupRow>
-          ref={gridRef}
           theme={theme}
           rowData={rows}
           columnDefs={columnDefs}

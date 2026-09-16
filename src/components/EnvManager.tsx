@@ -1127,6 +1127,43 @@ export const EnvManager = observer(
       (selectedTab === "environment-settings" && envApiSecondaryLoaded) ||
       (selectedTab === "environment-groups" &&
         selectedEnvironmentGroups.length === 2);
+    const currentExport =
+      selectedTab === "environment-settings"
+        ? {
+            label: "Export Environment Settings",
+            fileName: `environment-settings-${connection.name}`,
+            disabled: envApiRows.length === 0,
+            getSheets: () => [
+              createEnvironmentSettingsSheet(
+                envApiRows,
+                connection.name,
+                envApiSecondaryLoaded ? secondaryConnection?.name : undefined,
+                showOnlyDifferences,
+              ),
+            ],
+          }
+        : selectedTab === "environment-groups"
+          ? {
+              label: "Export Environment Groups",
+              fileName: "environment-groups",
+              disabled: envGroupsRows.length === 0,
+              getSheets: () => [
+                createEnvironmentGroupsSheet(envGroupsRows),
+              ],
+            }
+          : {
+              label: "Export Organization Settings",
+              fileName: `organization-settings-${connection.name}`,
+              disabled: viewModel.fullList.length === 0,
+              getSheets: () => [
+                createOrgSettingsSheet(
+                  viewModel.fullList,
+                  connection.name,
+                  secondaryConnection?.name,
+                  showOnlyDifferences,
+                ),
+              ],
+            };
 
     return (
       <div
@@ -1147,8 +1184,8 @@ export const EnvManager = observer(
             flexDirection: "column",
           }}
         >
-          {showTabs && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {showTabs && (
               <TabList
                 selectedValue={selectedTab}
                 onTabSelect={(_event: SelectTabEvent, data: SelectTabData) =>
@@ -1182,49 +1219,46 @@ export const EnvManager = observer(
                   </Tooltip>
                 )}
               </TabList>
-              {canFilterDifferences && (
-                <ComparisonFilterSwitch
-                  showOnlyDifferences={showOnlyDifferences}
-                  onChange={setShowOnlyDifferences}
-                />
-              )}
-              {selectedEnvironmentGroups.length === 0 && (
-                <ExcelExportButtons
-                  fileName={`environment-manager-${connection.name}`}
-                  disabled={
-                    viewModel.fullList.length === 0 &&
-                    envApiRows.length === 0 &&
-                    envGroupsRows.length === 0
-                  }
-                  showCurrent={false}
-                  getCurrentSheets={() => []}
-                  getAllSheets={() => [
-                    createOrgSettingsSheet(
-                      viewModel.fullList,
-                      connection.name,
-                      secondaryConnection?.name,
-                      showOnlyDifferences,
-                    ),
-                    ...(envApiLoaded
-                      ? [
-                          createEnvironmentSettingsSheet(
-                            envApiRows,
-                            connection.name,
-                            envApiSecondaryLoaded
-                              ? secondaryConnection?.name
-                              : undefined,
-                            showOnlyDifferences,
-                          ),
-                        ]
-                      : []),
-                    ...(envGroupsLoaded
-                      ? [createEnvironmentGroupsSheet(envGroupsRows)]
-                      : []),
-                  ]}
-                />
-              )}
-            </div>
-          )}
+            )}
+            {!showTabs && <div style={{ flex: 1 }} />}
+            {showTabs && canFilterDifferences && (
+              <ComparisonFilterSwitch
+                showOnlyDifferences={showOnlyDifferences}
+                onChange={setShowOnlyDifferences}
+              />
+            )}
+            {selectedEnvironmentGroups.length === 0 && (
+              <ExcelExportButtons
+                fileName={currentExport.fileName}
+                currentLabel={currentExport.label}
+                disabled={currentExport.disabled}
+                getCurrentSheets={currentExport.getSheets}
+                getAllSheets={() => [
+                  createOrgSettingsSheet(
+                    viewModel.fullList,
+                    connection.name,
+                    secondaryConnection?.name,
+                    showOnlyDifferences,
+                  ),
+                  ...(envApiLoaded
+                    ? [
+                        createEnvironmentSettingsSheet(
+                          envApiRows,
+                          connection.name,
+                          envApiSecondaryLoaded
+                            ? secondaryConnection?.name
+                            : undefined,
+                          showOnlyDifferences,
+                        ),
+                      ]
+                    : []),
+                  ...(envGroupsLoaded
+                    ? [createEnvironmentGroupsSheet(envGroupsRows)]
+                    : []),
+                ]}
+              />
+            )}
+          </div>
 
           <div
             className="env-manager-tab-content"
