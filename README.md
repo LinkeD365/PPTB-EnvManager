@@ -1,5 +1,7 @@
 # Environment Manager
 
+![Environment Manager screenshot](public/mainscreenshot.png)
+
 A Power Platform Tool Box tool which allows you to edit some behind the scenes settings for Dataverse environments
 
 ## Features
@@ -16,6 +18,14 @@ A Power Platform Tool Box tool which allows you to edit some behind the scenes s
 - ✅ Automatic fallback when Environment Management API is unavailable
 
 Tool is based on Sean McNellis original tool <https://github.com/seanmcne/OrgDbOrgSettings>
+
+## Useage
+
+After selecting one or more solutions, you are provided with a list of the settings and policies available for editing in the Environment Manager tool.
+
+Select the Edit icon on the left side of the grid to update the setting and save to update that value.
+
+Tabs are available if you have included a connection to the Power Platform API to allow configuration of Environment Groups and policy management.
 
 ## New Functionality
 
@@ -62,7 +72,6 @@ Excel, Markdown, or CSV. Combined Excel exports create a separate worksheet for
 every loaded grid, combined Markdown exports create a section per grid, and
 combined CSV exports download one file per grid. Exports preserve the current
 comparison and difference-filter context.
-
 
 ## Notes
 

@@ -1,6 +1,6 @@
 {
   "name": "@linked365/pptb-environment-manager",
-  "version": "0.4.3",
+  "version": "1.0.0",
   "displayName": "Environment Manager",
   "description": "A Power Platform Tool Box tool to manage optional settings per environment.",
   "main": "index.html",
@@ -40,8 +40,15 @@
   },
   "cspExceptions": {
     "connect-src": [
-      "https://raw.githubusercontent.com",
-      "https://raw.githubusercontent.com/LinkeD365/*"
+      {
+        "domain": "https://raw.githubusercontent.com/seanmcne/OrgDbOrgSettings/master/mspfedyn_/OrgDbOrgSettings/Solution/WebResources/mspfedyn_/OrgDbOrgSettings/Settings.xml",
+        "exceptionReason": "Access to basic information on settings"
+      },
+      {
+        "domain": "https://raw.githubusercontent.com/LinkeD365/*",
+        "exceptionReason": "Access to more information on settings",
+        "optional": true
+      }
     ]
   },
   "scripts": {
