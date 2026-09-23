@@ -1,6 +1,6 @@
 # Environment Manager
 
-![Environment Manager screenshot](public/mainscreenshot.png)
+![Environment Manager screenshot](https://github.com/LinkeD365/PPTB-EnvManager/blob/main/public/mainscreenshot.png?raw=true)
 
 A Power Platform Tool Box tool which allows you to edit some behind the scenes settings for Dataverse environments
 
@@ -26,6 +26,15 @@ After selecting one or more solutions, you are provided with a list of the setti
 Select the Edit icon on the left side of the grid to update the setting and save to update that value.
 
 Tabs are available if you have included a connection to the Power Platform API to allow configuration of Environment Groups and policy management.
+
+## CSP Requirements
+
+This tool uses the following GitHub repositories; access to the second is optional:
+
+- <https://github.com/seanmcne/OrgDbOrgSettings>
+- <https://github.com/LinkeD365/PPTB-EnvManager> (Optional)
+
+These enable the tool to access the necessary lists of settings so you can update settings that are not currently set and provide further information about the setting.
 
 ## New Functionality
 
