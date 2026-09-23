@@ -1,4 +1,4 @@
-name: Build & Publish to npm
+name: Increment version
 
 on:
   workflow_dispatch:
