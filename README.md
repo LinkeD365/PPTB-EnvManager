@@ -2,13 +2,7 @@
 
 ![Environment Manager screenshot](public/mainscreenshot.png)
 
-<<<<<<< Updated upstream
 A Power Platform Tool Box tool which allows you to edit some behind the scenes settings for Dataverse environments
-=======
-![Environment Manager screenshot](public/mainscreenshot.png)
-
-A Power Platform Tool Box tool which allows you to edit some behind the scenes settings for Dataverse environments.
->>>>>>> Stashed changes
 
 ## Features
 
