@@ -29,7 +29,7 @@ Tabs are available if you have included a connection to the Power Platform API t
 
 ## CSP Requirements
 
-This tool requires access to 2 Github repositories:
+This tool uses the following GitHub repositories; access to the second is optional:
 
 - <https://github.com/seanmcne/OrgDbOrgSettings>
 - <https://github.com/LinkeD365/PPTB-EnvManager> (Optional)
