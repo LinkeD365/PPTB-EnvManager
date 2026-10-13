@@ -16,15 +16,43 @@ export class orgProp {
   urlTitle?: string;
   linkeD365Url?: string;
   linkeD365Description?: string;
-  secondaryCurrent?: string;
-  secondaryNew?: string;
+  others?: Array<orgSlotValue | undefined>; //per-slot values for connections 1..n (index = slot)
 
   constructor() {
     this.current = "";
     this.name = "";
+    this.others = [];
 
     makeAutoObservable(this);
   }
+}
+
+export type orgSlotValue = { current?: string; new?: string };
+
+export function getSlotCurrent(item: orgProp, slot: number): string | undefined {
+  return slot === 0 ? item.current : item.others?.[slot]?.current;
+}
+
+export function getSlotNew(item: orgProp, slot: number): string | undefined {
+  return slot === 0 ? item.new : item.others?.[slot]?.new;
+}
+
+export function setSlotCurrent(item: orgProp, slot: number, value: string | undefined): void {
+  if (slot === 0) {
+    item.current = value ?? "";
+    return;
+  }
+  item.others = item.others ?? [];
+  item.others[slot] = { ...item.others[slot], current: value };
+}
+
+export function setSlotNew(item: orgProp, slot: number, value: string | undefined): void {
+  if (slot === 0) {
+    item.new = value;
+    return;
+  }
+  item.others = item.others ?? [];
+  item.others[slot] = { ...item.others[slot], new: value };
 }
 
 export class propOptions {

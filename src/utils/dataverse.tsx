@@ -2,7 +2,7 @@ import { orgProp } from "../model/OrgSetting";
 
 interface dvServiceProps {
   connection: ToolBoxAPI.DataverseConnection | null;
-  secondaryConnection?: ToolBoxAPI.DataverseConnection | null;
+  connections?: Array<ToolBoxAPI.DataverseConnection | null>;
   dvApi: DataverseAPI.API;
   onLog: (message: string, type?: "info" | "success" | "warning" | "error") => void;
 }
@@ -11,24 +11,24 @@ export class dvService {
   private static environmentIdInflight = new Map<string, Promise<string>>();
 
   connection: ToolBoxAPI.DataverseConnection | null;
-  secondaryConnection: ToolBoxAPI.DataverseConnection | null = null;
+  connections: Array<ToolBoxAPI.DataverseConnection | null> = [];
   dvApi: DataverseAPI.API;
   onLog: (message: string, type?: "info" | "success" | "warning" | "error") => void;
 
   constructor(props: dvServiceProps) {
-    this.secondaryConnection = props.secondaryConnection || null;
+    this.connections = props.connections ?? [];
     this.connection = props.connection;
     this.dvApi = props.dvApi;
     this.onLog = props.onLog;
   }
 
-  private getConnectionTarget(secondary?: boolean): "primary" | "secondary" {
-    return secondary ? "secondary" : "primary";
+  private getConnection(slot: number): ToolBoxAPI.DataverseConnection | null {
+    return slot === 0 ? this.connection : (this.connections[slot] ?? null);
   }
 
-  private getCacheKey(connectionTarget: "primary" | "secondary"): string {
-    const conn = connectionTarget === "secondary" ? this.secondaryConnection : this.connection;
-    return `${connectionTarget}:${conn?.id ?? conn?.url ?? "unknown"}`;
+  private getCacheKey(slot: number): string {
+    const conn = this.getConnection(slot);
+    return `${slot}:${conn?.id ?? conn?.url ?? "unknown"}`;
   }
 
   private normalizeGuid(value: string): string | null {
@@ -64,15 +64,14 @@ export class dvService {
     return null;
   }
 
-  async getEnvironmentId(secondary?: boolean, forceRefresh = false): Promise<string> {
-    const connectionTarget = this.getConnectionTarget(secondary);
-    const conn = connectionTarget === "secondary" ? this.secondaryConnection : this.connection;
+  async getEnvironmentId(slot = 0, forceRefresh = false): Promise<string> {
+    const conn = this.getConnection(slot);
 
     if (!conn) {
-      throw new Error(`No ${connectionTarget} Dataverse connection available`);
+      throw new Error(`No Dataverse connection available for slot ${slot}`);
     }
 
-    const cacheKey = this.getCacheKey(connectionTarget);
+    const cacheKey = this.getCacheKey(slot);
     if (!forceRefresh) {
       const cachedEnvironmentId = dvService.environmentIdCache.get(cacheKey);
       if (cachedEnvironmentId) {
@@ -94,7 +93,7 @@ export class dvService {
             AccessType: "Microsoft.Dynamics.CRM.EndpointAccessType'Default'",
           },
         },
-        connectionTarget
+        slot
       )
       .then((response) => {
         const environmentId = this.extractEnvironmentId(response);
@@ -113,9 +112,9 @@ export class dvService {
     return request;
   }
 
-  async getOrgSettings(secondary?: boolean): Promise<[string, orgProp[]]> {
+  async getOrgSettings(slot = 0): Promise<[string, orgProp[]]> {
     this.onLog("Fetching organization settings...", "info");
-    const conn = secondary ? this.secondaryConnection : this.connection;
+    const conn = this.getConnection(slot);
     if (!conn) throw new Error("No Dataverse connection available");
 
     const fetchXml = `
@@ -124,7 +123,7 @@ export class dvService {
     <attribute name="orgdborgsettings" />
   </entity>
 </fetch>`;
-    const settings = await this.dvApi.fetchXmlQuery(fetchXml, secondary ? "secondary" : "primary");
+    const settings = await this.dvApi.fetchXmlQuery(fetchXml, slot);
     //        setOrgSettings(settings.value[0]);
 
     const parser = new DOMParser();
@@ -147,11 +146,11 @@ export class dvService {
   async updateOrgSettingsXml(
     updateString: string,
     orgId: string,
-    secondary: boolean
+    slot: number
   ): Promise<{ success: true } | { success: false; error: string }> {
     this.onLog("Updating organization settings...", "info");
 
-    if (!this.connection) {
+    if (!this.getConnection(slot)) {
       const errorMessage = "No Dataverse connection available";
       this.onLog(errorMessage, "error");
       return { success: false, error: errorMessage };
@@ -164,7 +163,7 @@ export class dvService {
         {
           orgdborgsettings: updateString,
         },
-        secondary ? "secondary" : "primary"
+        slot
       );
 
       this.onLog("Organization settings updated", "success");

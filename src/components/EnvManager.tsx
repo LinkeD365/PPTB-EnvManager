@@ -16,7 +16,13 @@ import {
 } from "@fluentui/react-components";
 import { Info16Regular } from "@fluentui/react-icons";
 import { dvService } from "../utils/dataverse";
-import { orgProp } from "../model/OrgSetting";
+import {
+  orgProp,
+  getSlotCurrent,
+  getSlotNew,
+  setSlotCurrent,
+  setSlotNew,
+} from "../model/OrgSetting";
 import { observable, runInAction } from "mobx";
 import {
   createOrgSettingsSheet,
@@ -26,6 +32,8 @@ import {
   createEnvironmentSettingsSheet,
   EnvironmentSettingsGrid,
   EnvApiGridRow,
+  getEnvSlotCurrent,
+  getEnvSlotNew,
 } from "./EnvironmentSettingsGrid";
 import {
   getEnvironmentGroups,
@@ -66,7 +74,7 @@ const myTheme = themeQuartz.withParams({
 
 interface EnvManagerProps {
   connection: ToolBoxAPI.DataverseConnection | null;
-  secondaryConnection?: ToolBoxAPI.DataverseConnection | null;
+  connections: Array<ToolBoxAPI.DataverseConnection | null>;
   dvService: dvService;
   isLoading: boolean;
   viewModel: ViewModel;
@@ -74,6 +82,10 @@ interface EnvManagerProps {
     message: string,
     type?: "info" | "success" | "warning" | "error",
   ) => void;
+}
+
+function getSlotLabel(slot: number): string {
+  return slot === 0 ? "primary" : slot === 1 ? "secondary" : `connection ${slot + 1}`;
 }
 
 function getConnectionKey(
@@ -139,7 +151,7 @@ export const EnvManager = observer(
   (props: EnvManagerProps): React.JSX.Element => {
     const {
       connection,
-      secondaryConnection,
+      connections,
       isLoading,
       viewModel,
       onLog,
@@ -149,22 +161,26 @@ export const EnvManager = observer(
       () => getConnectionKey(connection),
       [connection],
     );
-    const secondaryConnectionKey = React.useMemo(
-      () => getConnectionKey(secondaryConnection ?? null),
-      [secondaryConnection],
+    const connectionsKey = React.useMemo(
+      () => connections.map(getConnectionKey).join("~"),
+      [connections],
+    );
+    const hasOtherConnections = connections.some(
+      (conn, slot) => slot > 0 && Boolean(conn),
     );
     const [loadingSettings, setLoadingSettings] = React.useState(false);
     const [selectedTab, setSelectedTab] = React.useState("org-settings");
     const [showOnlyDifferences, setShowOnlyDifferences] = React.useState(false);
     const [isEnvApiLoading, setIsEnvApiLoading] = React.useState(false);
     const [isEnvGroupsLoading, setIsEnvGroupsLoading] = React.useState(false);
-    const [isEnvApiSaving, setIsEnvApiSaving] = React.useState(false);
-    const [isSecondaryEnvApiSaving, setIsSecondaryEnvApiSaving] =
-      React.useState(false);
+    const [envApiSavingSlots, setEnvApiSavingSlots] = React.useState<boolean[]>(
+      [],
+    );
     const [envApiLoaded, setEnvApiLoaded] = React.useState(false);
     const [envGroupsLoaded, setEnvGroupsLoaded] = React.useState(false);
-    const [envApiSecondaryLoaded, setEnvApiSecondaryLoaded] =
-      React.useState(false);
+    const [envApiLoadedSlots, setEnvApiLoadedSlots] = React.useState<boolean[]>(
+      [],
+    );
     const [envApiError, setEnvApiError] = React.useState<string | null>(null);
     const [envGroupsError, setEnvGroupsError] = React.useState<string | null>(
       null,
@@ -176,10 +192,9 @@ export const EnvManager = observer(
     const [envGroupStats, setEnvGroupStats] = React.useState<
       Map<string, EnvironmentGroupStats>
     >(new Map());
-    const [envApiEnvironmentId, setEnvApiEnvironmentId] =
-      React.useState<string>("");
-    const [secondaryEnvApiEnvironmentId, setSecondaryEnvApiEnvironmentId] =
-      React.useState<string>("");
+    const [envApiEnvironmentIds, setEnvApiEnvironmentIds] = React.useState<
+      string[]
+    >([]);
     const [envApiInfoLookup, setEnvApiInfoLookup] = React.useState<
       Map<string, EnvApiInfoItem>
     >(new Map());
@@ -274,22 +289,22 @@ export const EnvManager = observer(
       });
     }
 
-    function mergeSecondaryEnvApiGrid(
+    function mergeOtherEnvApiGrid(
       primaryRows: EnvApiGridRow[],
+      slot: number,
       payload: unknown,
     ): EnvApiGridRow[] {
-      const secondaryRows = createEnvApiGrid(payload);
-      const secondaryMap = new Map(
-        secondaryRows.map((row) => [row.property, row]),
-      );
+      const otherRows = createEnvApiGrid(payload);
+      const otherMap = new Map(otherRows.map((row) => [row.property, row]));
 
       return primaryRows.map((row) => {
-        const secondaryRow = secondaryMap.get(row.property);
-        return {
-          ...row,
-          secondaryCurrent: secondaryRow?.current ?? null,
-          secondaryNew: secondaryRow?.current ?? null,
+        const otherRow = otherMap.get(row.property);
+        const others = [...(row.others ?? [])];
+        others[slot] = {
+          current: otherRow?.current ?? null,
+          new: otherRow?.current ?? null,
         };
+        return { ...row, others };
       });
     }
 
@@ -371,14 +386,10 @@ export const EnvManager = observer(
     function setItemNewValue(
       item: orgProp,
       newValue: string,
-      secondary?: boolean,
+      slot = 0,
     ): void {
       runInAction(() => {
-        if (secondary) {
-          item.secondaryNew = newValue;
-        } else {
-          item.new = newValue;
-        }
+        setSlotNew(item, slot, newValue);
       });
     }
 
@@ -386,16 +397,15 @@ export const EnvManager = observer(
       setSelectedTab("org-settings");
       setEnvApiLoaded(false);
       setEnvGroupsLoaded(false);
-      setEnvApiSecondaryLoaded(false);
+      setEnvApiLoadedSlots([]);
       setEnvApiRows([]);
       setEnvGroupsRows([]);
       setEnvGroupStats(new Map());
       setSelectedEnvironmentGroups([]);
-      setEnvApiEnvironmentId("");
-      setSecondaryEnvApiEnvironmentId("");
+      setEnvApiEnvironmentIds([]);
       setEnvApiError(null);
       setEnvGroupsError(null);
-    }, [connectionKey, secondaryConnectionKey]);
+    }, [connectionKey, connectionsKey]);
 
     React.useEffect(() => {
       envGroupStatsRef.current = envGroupStats;
@@ -461,48 +471,51 @@ export const EnvManager = observer(
         setIsEnvApiLoading(true);
         setEnvApiError(null);
         try {
-          const envId = await dvService.getEnvironmentId();
-          setEnvApiEnvironmentId(envId);
+          const envId = await dvService.getEnvironmentId(0);
+          const envIds: string[] = [envId];
+          const loadedSlots: boolean[] = [];
           const response = await getEnvironmentManagementSettings(envId, {
-            connectionTarget: "primary",
+            connectionTarget: 0,
           });
           if (cancelled) {
             return;
           }
 
           let gridRows = createEnvApiGrid(response);
-          if (secondaryConnection) {
+          for (let slot = 1; slot < connections.length; slot++) {
+            if (!connections[slot]) {
+              continue;
+            }
+
             try {
-              const secondaryEnvId = await dvService.getEnvironmentId(true);
-              setSecondaryEnvApiEnvironmentId(secondaryEnvId);
-              const secondaryResponse = await getEnvironmentManagementSettings(
-                secondaryEnvId,
+              const otherEnvId = await dvService.getEnvironmentId(slot);
+              const otherResponse = await getEnvironmentManagementSettings(
+                otherEnvId,
                 {
-                  connectionTarget: "secondary",
+                  connectionTarget: slot,
                 },
               );
               if (cancelled) {
                 return;
               }
 
-              gridRows = mergeSecondaryEnvApiGrid(gridRows, secondaryResponse);
-              setEnvApiSecondaryLoaded(true);
-            } catch (secondaryErr) {
-              setSecondaryEnvApiEnvironmentId("");
-              setEnvApiSecondaryLoaded(false);
+              gridRows = mergeOtherEnvApiGrid(gridRows, slot, otherResponse);
+              envIds[slot] = otherEnvId;
+              loadedSlots[slot] = true;
+            } catch (otherErr) {
               console.warn(
-                "[EnvTabs] Secondary environment API load failed",
-                secondaryErr,
+                `[EnvTabs] ${getSlotLabel(slot)} environment API load failed`,
+                otherErr,
               );
               onLog(
-                `Unable to load secondary environment settings: ${String(secondaryErr)}`,
+                `Unable to load ${getSlotLabel(slot)} environment settings: ${String(otherErr)}`,
                 "warning",
               );
             }
-          } else {
-            setSecondaryEnvApiEnvironmentId("");
-            setEnvApiSecondaryLoaded(false);
           }
+
+          setEnvApiEnvironmentIds(envIds);
+          setEnvApiLoadedSlots(loadedSlots);
 
           gridRows = attachEnvApiInfo(gridRows, envApiInfoLookupRef.current);
 
@@ -537,7 +550,7 @@ export const EnvManager = observer(
       return () => {
         cancelled = true;
       };
-    }, [connection, connectionKey, secondaryConnection, dvService, onLog]);
+    }, [connection, connectionKey, connections, dvService, onLog]);
 
     React.useEffect(() => {
       if (!connection) {
@@ -552,7 +565,7 @@ export const EnvManager = observer(
 
         try {
           const response = await getEnvironmentGroups({
-            connectionTarget: "primary",
+            connectionTarget: 0,
           });
           if (cancelled) {
             return;
@@ -600,7 +613,7 @@ export const EnvManager = observer(
       const loadEnvironmentGroupCounts = async () => {
         try {
           const response = await getEnvironments({
-            connectionTarget: "primary",
+            connectionTarget: 0,
           });
           if (cancelled) {
             return;
@@ -661,7 +674,11 @@ export const EnvManager = observer(
               ...row,
               edit,
               new: edit ? row.new : row.current,
-              secondaryNew: edit ? row.secondaryNew : row.secondaryCurrent,
+              others: row.others?.map((other) =>
+                other
+                  ? { ...other, new: edit ? other.new : other.current }
+                  : other,
+              ),
             };
           }),
         );
@@ -673,7 +690,7 @@ export const EnvManager = observer(
       (
         property: string,
         nextValue: string | number | boolean | null,
-        secondary?: boolean,
+        slot = 0,
       ) => {
         setEnvApiRows((prev) =>
           prev.map((row) => {
@@ -681,8 +698,13 @@ export const EnvManager = observer(
               return row;
             }
 
-            if (secondary) {
-              return { ...row, secondaryNew: nextValue };
+            if (slot > 0) {
+              const others = [...(row.others ?? [])];
+              others[slot] = {
+                current: others[slot]?.current ?? null,
+                new: nextValue,
+              };
+              return { ...row, others };
             }
 
             return { ...row, new: nextValue };
@@ -693,11 +715,9 @@ export const EnvManager = observer(
     );
 
     const saveEnvironmentSettings = React.useCallback(
-      async (secondary?: boolean) => {
-        const targetLabel = secondary ? "secondary" : "primary";
-        const targetEnvironmentId = secondary
-          ? secondaryEnvApiEnvironmentId
-          : envApiEnvironmentId;
+      async (slot = 0) => {
+        const targetLabel = getSlotLabel(slot);
+        const targetEnvironmentId = envApiEnvironmentIds[slot];
 
         if (!targetEnvironmentId) {
           onLog(
@@ -712,34 +732,31 @@ export const EnvManager = observer(
             return false;
           }
 
-          return secondary
-            ? row.secondaryNew !== row.secondaryCurrent
-            : row.new !== row.current;
+          return getEnvSlotNew(row, slot) !== getEnvSlotCurrent(row, slot);
         });
 
         if (editedItems.length === 0) {
           window.toolboxAPI.utils.showNotification({
             title: "No changes to save",
-            body: secondary
-              ? "No secondary environment settings have been modified."
-              : "No environment settings have been modified.",
+            body:
+              slot > 0
+                ? `No ${targetLabel} environment settings have been modified.`
+                : "No environment settings have been modified.",
           });
           return;
         }
 
-        if (secondary) {
-          setIsSecondaryEnvApiSaving(true);
-        } else {
-          setIsEnvApiSaving(true);
-        }
+        setEnvApiSavingSlots((prev) => {
+          const next = [...prev];
+          next[slot] = true;
+          return next;
+        });
 
         try {
           const payload = editedItems.reduce<
             Record<string, string | number | boolean | null>
           >((acc, item) => {
-            acc[item.property] = secondary
-              ? (item.secondaryNew ?? null)
-              : item.new;
+            acc[item.property] = getEnvSlotNew(item, slot) ?? null;
             return acc;
           }, {});
 
@@ -747,7 +764,7 @@ export const EnvManager = observer(
             targetEnvironmentId,
             payload,
             {
-              connectionTarget: secondary ? "secondary" : "primary",
+              connectionTarget: slot,
             },
           );
           const responseObj = response as {
@@ -770,13 +787,10 @@ export const EnvManager = observer(
                 return row;
               }
 
-              if (secondary) {
-                return {
-                  ...row,
-                  secondaryCurrent: updatedValue,
-                  secondaryNew: updatedValue,
-                  edit: false,
-                };
+              if (slot > 0) {
+                const others = [...(row.others ?? [])];
+                others[slot] = { current: updatedValue, new: updatedValue };
+                return { ...row, others, edit: false };
               }
 
               return {
@@ -793,7 +807,7 @@ export const EnvManager = observer(
           );
           window.toolboxAPI.utils.showNotification({
             title: "Environment settings updated",
-            body: `Saved ${editedItems.length} ${secondary ? "secondary " : ""}setting(s).`,
+            body: `Saved ${editedItems.length} ${slot > 0 ? `${targetLabel} ` : ""}setting(s).`,
             type: "success",
             duration: 3000,
           });
@@ -810,14 +824,14 @@ export const EnvManager = observer(
             duration: 4000,
           });
         } finally {
-          if (secondary) {
-            setIsSecondaryEnvApiSaving(false);
-          } else {
-            setIsEnvApiSaving(false);
-          }
+          setEnvApiSavingSlots((prev) => {
+            const next = [...prev];
+            next[slot] = false;
+            return next;
+          });
         }
       },
-      [secondaryEnvApiEnvironmentId, envApiEnvironmentId, envApiRows, onLog],
+      [envApiEnvironmentIds, envApiRows, onLog],
     );
 
     React.useEffect(() => {
@@ -834,8 +848,8 @@ export const EnvManager = observer(
     React.useEffect(() => {
       onLog("Loading organization settings...", "info");
 
-      if (connection || secondaryConnection) fetchOrgSettings();
-    }, [connection, secondaryConnection, viewModel.blankList.length, onLog]);
+      if (connection || hasOtherConnections) fetchOrgSettings();
+    }, [connection, connections, viewModel.blankList.length, onLog]);
 
     // Get the Sean Mcne Xml
     const getMcneXML = async () => {
@@ -936,6 +950,7 @@ export const EnvManager = observer(
         .getOrgSettings()
         .then(async ([orgId, settings]) => {
           viewModel.primaryOrgId = orgId;
+          viewModel.orgIds = [orgId];
           if (
             Array.isArray(viewModel.blankList) &&
             viewModel.blankList.length > 0 &&
@@ -961,31 +976,51 @@ export const EnvManager = observer(
             });
           }
 
-          if (secondaryConnection) {
-            await dvService
-              .getOrgSettings(true)
-              .then(([orgId, secSettings]) => {
-                viewModel.secondaryOrgId = orgId;
+          runInAction(() => {
+            viewModel.orgIds = [orgId];
+            viewModel.fullList.forEach((setting) => {
+              setting.others = [];
+              setting.edit = false;
+              setting.new = undefined;
+            });
+          });
 
-                const secRows = new Map(
-                  secSettings.map((r) => [r.name?.toLowerCase() ?? "", r]),
-                );
+          for (let slot = 1; slot < connections.length; slot++) {
+            if (!connections[slot]) {
+              continue;
+            }
 
-                runInAction(() => {
-                  viewModel.fullList.forEach((setting) => {
-                    const match = secRows.get(
-                      setting.name?.toLowerCase() ?? "",
-                    );
-                    if (match) {
-                      // Prefer the value from rows for current if present
-                      if (match.current && match.current !== "") {
-                        setting.secondaryCurrent = match.current;
-                      }
-                    }
-                    //viewModel.fullList.push(f);
-                  });
+            try {
+              const [otherOrgId, otherSettings] =
+                await dvService.getOrgSettings(slot);
+              const otherRows = new Map(
+                otherSettings.map((r) => [r.name?.toLowerCase() ?? "", r]),
+              );
+
+              runInAction(() => {
+                viewModel.orgIds[slot] = otherOrgId;
+                viewModel.fullList.forEach((setting) => {
+                  const match = otherRows.get(
+                    setting.name?.toLowerCase() ?? "",
+                  );
+                  // Prefer the value from rows for current if present
+                  if (match && match.current && match.current !== "") {
+                    setSlotCurrent(setting, slot, match.current);
+                  }
                 });
               });
+            } catch (otherErr) {
+              onLog(
+                `Failed to fetch ${getSlotLabel(slot)} organization settings: ${String(otherErr)}`,
+                "error",
+              );
+              window.toolboxAPI.utils.showNotification({
+                title: "Error fetching organization settings",
+                body: `Error: ${String(otherErr)}`,
+                type: "error",
+                duration: 3000,
+              });
+            }
           }
         })
         .catch((err) => {
@@ -1003,7 +1038,7 @@ export const EnvManager = observer(
       setLoadingSettings(false);
     };
 
-    function saveOrgSettings(secondary?: boolean): void {
+    function saveOrgSettings(slot = 0): void {
       let editedItems = viewModel.fullList.filter((i) => i.edit);
       if (editedItems.length === 0) {
         window.toolboxAPI.utils.showNotification({
@@ -1013,13 +1048,9 @@ export const EnvManager = observer(
         onLog("No changes to save", "info");
         return;
       }
-      if (secondary) {
-        editedItems = editedItems.filter(
-          (item) => item.secondaryNew !== item.secondaryCurrent,
-        );
-      } else {
-        editedItems = editedItems.filter((item) => item.new !== item.current);
-      }
+      editedItems = editedItems.filter(
+        (item) => getSlotNew(item, slot) !== getSlotCurrent(item, slot),
+      );
       if (editedItems.length === 0) {
         window.toolboxAPI.utils.showNotification({
           title: "No changes to save",
@@ -1029,7 +1060,7 @@ export const EnvManager = observer(
         return;
       }
 
-      const conn = secondary ? secondaryConnection : connection;
+      const conn = slot === 0 ? connection : connections[slot];
       (async () => {
         if (!conn) {
           await window.toolboxAPI.utils.showNotification({
@@ -1054,24 +1085,18 @@ export const EnvManager = observer(
         );
         try {
           let updateString = "<orgSettings>";
-          const settingsList = secondary
-            ? viewModel.fullList.filter(
-                (it) => it.secondaryCurrent || it.secondaryNew,
-              )
-            : viewModel.fullList.filter((it) => it.current || it.new);
+          const settingsList = viewModel.fullList.filter(
+            (it) => getSlotCurrent(it, slot) || getSlotNew(it, slot),
+          );
           settingsList.forEach((it) => {
-            updateString += secondary
-              ? `<${it.name}>${it.secondaryNew ?? it.secondaryCurrent}</${it.name}>`
-              : `<${it.name}>${it.new ?? it.current}</${it.name}>`;
+            updateString += `<${it.name}>${getSlotNew(it, slot) ?? getSlotCurrent(it, slot)}</${it.name}>`;
           });
           updateString += "</orgSettings>";
           await dvService
             .updateOrgSettingsXml(
               updateString,
-              secondary
-                ? (viewModel.secondaryOrgId ?? "")
-                : (viewModel.primaryOrgId ?? ""),
-              !!secondary,
+              viewModel.orgIds[slot] ?? "",
+              slot,
             )
             .then(async (result) => {
               if (!result.success) {
@@ -1137,22 +1162,38 @@ export const EnvManager = observer(
       Boolean(envGroupsError);
     const canShowEnvironmentGroupsTab = envGroupsLoaded;
     const canFilterDifferences =
-      (selectedTab === "org-settings" && Boolean(secondaryConnection)) ||
-      (selectedTab === "environment-settings" && envApiSecondaryLoaded) ||
+      (selectedTab === "org-settings" && hasOtherConnections) ||
+      (selectedTab === "environment-settings" &&
+        envApiLoadedSlots.some(Boolean)) ||
       (selectedTab === "environment-groups" &&
         selectedEnvironmentGroups.length === 2);
     const registeredCurrentExport =
       currentGridExport?.id === selectedTab ? currentGridExport : undefined;
+    const orgConnectionNames = connections.map((conn) => conn?.name);
+    orgConnectionNames[0] = connection.name;
+    const envConnectionNames = connections.map((conn, slot) =>
+      slot === 0 || envApiLoadedSlots[slot] ? conn?.name : undefined,
+    );
+    envConnectionNames[0] = connection.name;
+    const envPendingSlots = envConnectionNames.map((_, slot) =>
+      envApiRows.some(
+        (row) =>
+          row.edit &&
+          getEnvSlotNew(row, slot) !== getEnvSlotCurrent(row, slot) &&
+          row.editable !== false,
+      ),
+    );
+    const envSavingSlots = envConnectionNames.map(
+      (_, slot) => envApiSavingSlots[slot] ?? false,
+    );
     const organizationSettingsSheet = createOrgSettingsSheet(
       viewModel.fullList,
-      connection.name,
-      secondaryConnection?.name,
+      orgConnectionNames,
       showOnlyDifferences,
     );
     const environmentSettingsSheet = createEnvironmentSettingsSheet(
       envApiRows,
-      connection.name,
-      envApiSecondaryLoaded ? secondaryConnection?.name : undefined,
+      envConnectionNames,
       showOnlyDifferences,
     );
     const environmentGroupsSheet =
@@ -1290,12 +1331,10 @@ export const EnvManager = observer(
               <OrgSettingsGrid
                 theme={myTheme}
                 rowData={viewModel.fullList}
-                connectionName={connection.name}
-                secondaryConnectionName={secondaryConnection?.name}
+                connectionNames={orgConnectionNames}
                 isPowerPlatformApiUnavailable={Boolean(envApiError)}
                 showOnlyDifferences={showOnlyDifferences}
-                onSavePrimary={() => saveOrgSettings()}
-                onSaveSecondary={() => saveOrgSettings(true)}
+                onSave={saveOrgSettings}
                 setItemNewValue={setItemNewValue}
                 onExportRegistration={registerCurrentGridExport}
               />
@@ -1307,32 +1346,14 @@ export const EnvManager = observer(
                 error={envApiError}
                 isLoaded={envApiLoaded}
                 rows={envApiRows}
-                connectionName={connection?.name}
-                secondaryConnectionName={
-                  envApiSecondaryLoaded ? secondaryConnection?.name : undefined
-                }
+                connectionNames={envConnectionNames}
                 showOnlyDifferences={showOnlyDifferences}
-                isSaving={isEnvApiSaving}
-                isSecondarySaving={isSecondaryEnvApiSaving}
-                hasPendingChanges={envApiRows.some(
-                  (row) =>
-                    row.edit &&
-                    row.new !== row.current &&
-                    row.editable !== false,
-                )}
-                hasSecondaryPendingChanges={envApiRows.some(
-                  (row) =>
-                    row.edit &&
-                    row.secondaryNew !== row.secondaryCurrent &&
-                    row.editable !== false,
-                )}
+                savingSlots={envSavingSlots}
+                pendingSlots={envPendingSlots}
                 onToggleEdit={handleEnvironmentToggleEdit}
                 onNewValueChange={handleEnvironmentNewValueChange}
-                onSave={() => {
-                  void saveEnvironmentSettings();
-                }}
-                onSaveSecondary={() => {
-                  void saveEnvironmentSettings(true);
+                onSave={(slot) => {
+                  void saveEnvironmentSettings(slot);
                 }}
                 theme={myTheme}
                 onExportRegistration={registerCurrentGridExport}

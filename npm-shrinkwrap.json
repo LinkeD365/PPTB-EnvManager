@@ -20,7 +20,7 @@
         "write-excel-file": "^2.3.10"
       },
       "devDependencies": {
-        "@pptb/types": "^1.2.4-beta.6",
+        "@pptb/types": "^1.2.7",
         "@types/react": "^18.3.27",
         "@types/react-dom": "^18.3.7",
         "@vitejs/plugin-react": "^4.7.0",
@@ -2482,26 +2482,26 @@
       }
     },
     "node_modules/@pptb/types": {
-      "version": "1.2.4-beta.6",
-      "resolved": "https://registry.npmjs.org/@pptb/types/-/types-1.2.4-beta.6.tgz",
-      "integrity": "sha512-6FiD3h/i0yR05scfen/fvtY4KCbyWOLp3lsoqUG0+9VLvZgfIFtT99Afl+EQtiYZQY3/g2BPO2QGkTlM8UqvBA==",
+      "version": "1.2.7",
+      "resolved": "https://registry.npmjs.org/@pptb/types/-/types-1.2.7.tgz",
+      "integrity": "sha512-5ZjydNzwu/S13/obpADCC5bfVIR81mITZXxezwj5eLl2L528lzfGV/gU7w9M5ViZBr89+eFAkH1aDXIZ64o9qQ==",
       "dev": true,
       "license": "GPL-3.0",
       "dependencies": {
-        "@pptb/validate": "^0.0.2"
+        "@pptb/validate": "1.0.5"
       },
       "bin": {
         "pptb-validate": "bin/pptb-validate.js"
       }
     },
     "node_modules/@pptb/validate": {
-      "version": "0.0.2",
-      "resolved": "https://registry.npmjs.org/@pptb/validate/-/validate-0.0.2.tgz",
-      "integrity": "sha512-QsuimcuDgEbblqC4uAeXE+ONm5KJ5twKbGFh9d8e4leF2jsISgVpVzYPgivSLUA9iomDGmMnXcklHPgb4jEf1A==",
+      "version": "1.0.5",
+      "resolved": "https://registry.npmjs.org/@pptb/validate/-/validate-1.0.5.tgz",
+      "integrity": "sha512-zi5WUWAnWm/JFf4oq3ffoeyEpVwV/8qHy+oaJ95kvi+QYnpDqXFFi0uoTt1pBGI+G1Ws6ljmEtxfGbxn/bAhhA==",
       "dev": true,
       "license": "GPL-3.0",
       "dependencies": {
-        "tar": "^7.5.16"
+        "tar": "^7.5.21"
       },
       "bin": {
         "pptb-validate": "dist/cli.js"
@@ -4541,6 +4541,7 @@
       "resolved": "https://registry.npmjs.org/tar/-/tar-7.5.22.tgz",
       "integrity": "sha512-MFO/QzvtAOmJbkhOaCTvbGcFN9L9b+JunIsDwaKljSOdcLMea3NJ1k9Usz/rjdfSXTq4dfzfeS7W4p4YOAAHeA==",
       "dev": true,
+      "license": "BlueOak-1.0.0",
       "dependencies": {
         "@isaacs/fs-minipass": "^4.0.0",
         "chownr": "^3.0.0",

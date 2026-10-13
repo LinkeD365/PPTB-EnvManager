@@ -1,7 +1,7 @@
 import envGroupRulesFallback from "../data/EnvGrpRules.json";
 
 interface EnvironmentApiOptions {
-  connectionTarget?: "primary" | "secondary";
+  connectionTarget?: PowerPlatformAPI.ConnectionTarget;
 }
 
 const API_VERSION = "2024-10-01";
@@ -117,7 +117,7 @@ export interface EnvironmentGroupPolicyRuleSetRow {
 }
 
 export class EnvironmentManagementUtils {
-  private getConnectionTarget(options?: EnvironmentApiOptions): "primary" | "secondary" | undefined {
+  private getConnectionTarget(options?: EnvironmentApiOptions): PowerPlatformAPI.ConnectionTarget | undefined {
     return options?.connectionTarget;
   }
 

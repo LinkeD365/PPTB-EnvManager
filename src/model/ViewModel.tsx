@@ -6,12 +6,13 @@ export class ViewModel {
   fullList: orgProp[];
   theme: string;
   primaryOrgId: string;
-  secondaryOrgId?: string;
+  orgIds: string[];
   constructor() {
     this.fullList = observable([]);
     this.blankList = [];
     this.theme = "light";
     this.primaryOrgId = "";
+    this.orgIds = [];
 
     makeAutoObservable(this);
   }
