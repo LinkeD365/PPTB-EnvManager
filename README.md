@@ -11,7 +11,7 @@ A Power Platform Tool Box tool which allows you to edit some behind the scenes s
 - ✅ Environment Groups and policy comparison workflows for governance rule review
 - ✅ Compare Environment Groups highlighting differences
 - ✅ Compare Connectors in Environment Groups highlighting differences
-- ✅ Compare primary and secondary environments side-by-side
+- ✅ Compare up to 5 connected environments side-by-side
 - ✅ Rule-based policy and rule set updates through the Power Platform Governance APIs
 - ✅ Excel export for individual grids or all loaded grids in one workbook
 - ✅ Inline setting guidance from Microsoft, LinkeD365, and governance metadata sources
@@ -43,18 +43,18 @@ These enable the tool to access the necessary lists of settings so you can updat
 The tool loads settings from the Power Platform Environment Management endpoint and shows them in a dedicated **Environment Settings API** tab.
 
 - Reads settings by environment id automatically for the active connection
-- Supports compare mode when a secondary connection is selected
+- Supports compare mode when additional connections (up to 5 in total) are selected
 - Tracks edits per row and only saves changed values
 - Handles `boolean`, `text`, `number`, and `not set` values
 - Blocks edits for non-editable fields such as `Id` and `TenantId`
 
-### Dual-Connection Save Flow
+### Multi-Connection Save Flow
 
 Both settings experiences support side-by-side compare. Each connection has its own save action so you can:
 
 - Save only primary changes
-- Save only secondary changes
-- Keep one side unchanged while validating the other
+- Save only the changes for any other connection
+- Keep other connections unchanged while validating one
 
 ### Environment Groups and Policy Management
 

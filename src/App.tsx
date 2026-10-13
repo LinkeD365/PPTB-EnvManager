@@ -6,7 +6,7 @@ import { dvService } from "./utils/dataverse";
 import { FluentProvider, webDarkTheme, webLightTheme } from "@fluentui/react-components";
 
 function App() {
-  const { connection, secondaryConnection, isLoading, refreshConnection } = useConnection();
+  const { connection, connections, isLoading, refreshConnection } = useConnection();
   const { addLog } = useEventLog();
   const [theme, setTheme] = useState<string>("light");
   const [viewModel] = useState(() => new ViewModel());
@@ -60,18 +60,18 @@ function App() {
     () =>
       new dvService({
         connection: connection,
-        secondaryConnection: secondaryConnection,
+        connections: connections,
         dvApi: window.dataverseAPI,
         onLog: addLog,
       }),
-    [connection, secondaryConnection, addLog]
+    [connection, connections, addLog]
   );
   return (
     <>
       <FluentProvider theme={theme === "dark" ? webDarkTheme : webLightTheme}>
         <EnvManager
           connection={connection}
-          secondaryConnection={secondaryConnection}
+          connections={connections}
           dvService={dvSvc}
           isLoading={isLoading}
           viewModel={viewModel}

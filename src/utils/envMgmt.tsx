@@ -162,7 +162,7 @@ export class EnvMgmt {
 
   async getEnvironmentGroupRuleSets(
     environmentGroupId: string,
-    target?: "primary" | "secondary",
+    target?: PowerPlatformAPI.ConnectionTarget,
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `environmentGroups/${environmentGroupId}/ruleSets?api-version=${API_VERSION}`;
     console.log("[EnvMgmt] Fetching environment group rule sets", {
@@ -183,7 +183,7 @@ export class EnvMgmt {
 
   async getRuleBasedPolicies(
     environmentGroupId: string,
-    target?: "primary" | "secondary",
+    target?: PowerPlatformAPI.ConnectionTarget,
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const assignedPolicy = `ruleBasedPolicies/environmentGroups/${environmentGroupId}/assignments?api-version=${API_VERSION}`;
     console.log("[EnvMgmt] Fetching aligned policies", {
@@ -220,7 +220,7 @@ export class EnvMgmt {
 
   async getEnvGroupRules(
     envGroupId: string,
-    target: "primary" | "secondary",
+    target: PowerPlatformAPI.ConnectionTarget,
   ): Promise<EnvGroupRulesResult> {
     const [currentRuleSets, allRules, currentPolicies] = await Promise.all([
       this.getEnvironmentGroupRuleSets(envGroupId, target),
