@@ -14,7 +14,12 @@ import {
   CustomInnerHeaderProps,
 } from "ag-grid-react";
 import { ColGroupDef, Theme } from "ag-grid-community";
-import { orgProp } from "../model/OrgSetting";
+import {
+  orgProp,
+  getSlotCurrent,
+  getSlotNew,
+  setSlotNew,
+} from "../model/OrgSetting";
 import { InputControl } from "./InputControl";
 import { InfoPopup } from "./Info";
 import { comparisonValuesDiffer } from "./ComparisonFilterButton";
@@ -28,67 +33,72 @@ function setItemEdit(item: orgProp, edit: boolean) {
   runInAction(() => {
     item.edit = edit;
     item.new = item.current;
+    item.others?.forEach((_, slot) => {
+      setSlotNew(item, slot, getSlotCurrent(item, slot));
+    });
   });
+}
+
+// Slots 1..n that have a connection name (index = connection slot).
+function getComparedSlots(connectionNames: Array<string | undefined>) {
+  return connectionNames
+    .map((name, slot) => (slot > 0 && name ? slot : -1))
+    .filter((slot) => slot > 0);
+}
+
+function rowDiffers(row: orgProp, slots: number[]): boolean {
+  return slots.some(
+    (slot) =>
+      comparisonValuesDiffer(row.current, getSlotCurrent(row, slot)) ||
+      comparisonValuesDiffer(row.new, getSlotNew(row, slot)),
+  );
 }
 
 interface OrgSettingsGridProps {
   rowData: orgProp[];
-  connectionName?: string;
-  secondaryConnectionName?: string;
+  connectionNames: Array<string | undefined>;
   isPowerPlatformApiUnavailable?: boolean;
   showOnlyDifferences: boolean;
   theme: Theme | "legacy";
-  onSavePrimary: () => void;
-  onSaveSecondary: () => void;
-  setItemNewValue: (
-    item: orgProp,
-    newValue: string,
-    secondary?: boolean,
-  ) => void;
+  onSave: (slot: number) => void;
+  setItemNewValue: (item: orgProp, newValue: string, slot?: number) => void;
   onExportRegistration?: (registration: GridExportRegistration) => void;
 }
 
 export function createOrgSettingsSheet(
   rows: orgProp[],
-  connectionName?: string,
-  secondaryConnectionName?: string,
+  connectionNames: Array<string | undefined>,
   showOnlyDifferences = false,
 ): ExcelSheet {
+  const slots = getComparedSlots(connectionNames);
   const exportRows =
-    secondaryConnectionName && showOnlyDifferences
-      ? rows.filter(
-          (row) =>
-            comparisonValuesDiffer(row.current, row.secondaryCurrent) ||
-            comparisonValuesDiffer(row.new, row.secondaryNew),
-        )
+    slots.length > 0 && showOnlyDifferences
+      ? rows.filter((row) => rowDiffers(row, slots))
       : rows;
+  const allSlots = [0, ...slots];
 
   return {
     name: "Organization Settings",
     columns: [
       { header: "Name", width: 36 },
-      { header: `${connectionName ?? "Primary Connection"} - Current`, width: 28 },
-      { header: `${connectionName ?? "Primary Connection"} - New`, width: 28 },
-      ...(secondaryConnectionName
-        ? [
-            {
-              header: `${secondaryConnectionName} - Current`,
-              width: 28,
-            },
-            { header: `${secondaryConnectionName} - New`, width: 28 },
-          ]
-        : []),
+      ...allSlots.flatMap((slot) => {
+        const name = connectionNames[slot] ?? "Primary Connection";
+        return [
+          { header: `${name} - Current`, width: 28 },
+          { header: `${name} - New`, width: 28 },
+        ];
+      }),
     ],
     rows: exportRows.map((row) => [
       row.name,
-      row.current,
-      row.new ?? row.current,
-      ...(secondaryConnectionName
-        ? [
-            row.secondaryCurrent ?? "",
-            row.secondaryNew ?? row.secondaryCurrent ?? "",
-          ]
-        : []),
+      ...allSlots.flatMap((slot) =>
+        slot === 0
+          ? [row.current, row.new ?? row.current]
+          : [
+              getSlotCurrent(row, slot) ?? "",
+              getSlotNew(row, slot) ?? getSlotCurrent(row, slot) ?? "",
+            ],
+      ),
     ]),
   };
 }
@@ -98,24 +108,21 @@ export const OrgSettingsGrid = (
 ): React.JSX.Element => {
   const {
     rowData,
-    connectionName,
-    secondaryConnectionName,
+    connectionNames,
     isPowerPlatformApiUnavailable,
     showOnlyDifferences,
     theme,
-    onSavePrimary,
-    onSaveSecondary,
+    onSave,
     setItemNewValue,
     onExportRegistration,
   } = props;
   const gridRef = React.useRef<AgGridReact<orgProp>>(null);
+  const connectionNamesKey = connectionNames.map((n) => n ?? "").join("|");
+  const comparedSlots = getComparedSlots(connectionNames);
+  const hasComparison = comparedSlots.length > 0;
   const visibleRows =
-    secondaryConnectionName && showOnlyDifferences
-      ? rowData.filter(
-          (row) =>
-            comparisonValuesDiffer(row.current, row.secondaryCurrent) ||
-            comparisonValuesDiffer(row.new, row.secondaryNew),
-        )
+    hasComparison && showOnlyDifferences
+      ? rowData.filter((row) => rowDiffers(row, comparedSlots))
       : rowData;
   const registerExport = React.useCallback(() => {
     const api = gridRef.current?.api;
@@ -125,33 +132,29 @@ export const OrgSettingsGrid = (
 
     onExportRegistration({
       id: "org-settings",
-      contextKey: `${connectionName ?? ""}|${secondaryConnectionName ?? ""}`,
+      contextKey: connectionNamesKey,
       rowCount: getDisplayedGridRows(api).length,
       getSheet: () =>
         createOrgSettingsSheet(
           getDisplayedGridRows(api),
-          connectionName,
-          secondaryConnectionName,
+          connectionNamesKey.split("|").map((n) => n || undefined),
         ),
     });
-  }, [connectionName, onExportRegistration, secondaryConnectionName]);
+  }, [connectionNamesKey, onExportRegistration]);
 
   React.useEffect(registerExport, [registerExport]);
 
   const getCompareCellStyle = React.useCallback(
-    (leftValue: unknown, rightValue?: unknown) => {
-      if (!secondaryConnectionName || rightValue === undefined) {
-        return undefined;
-      }
-
+    (leftValue: unknown, rightValues: unknown[]) => {
       const leftText =
         leftValue === null || leftValue === undefined ? "" : String(leftValue);
-      const rightText =
-        rightValue === null || rightValue === undefined
-          ? ""
-          : String(rightValue);
+      const differs = rightValues.some(
+        (rightValue) =>
+          rightValue !== undefined &&
+          (rightValue === null ? "" : String(rightValue)) !== leftText,
+      );
 
-      if (leftText === rightText) {
+      if (!hasComparison || !differs) {
         return undefined;
       }
 
@@ -160,7 +163,7 @@ export const OrgSettingsGrid = (
         borderLeft: "3px solid #ffbf00",
       };
     },
-    [secondaryConnectionName],
+    [hasComparison],
   );
 
   const renderCompactValue = React.useCallback((value: unknown) => {
@@ -201,31 +204,8 @@ export const OrgSettingsGrid = (
     );
   }, [isPowerPlatformApiUnavailable]);
 
-  const saveHeaderButton = observer(
-    (params: CustomInnerHeaderProps<orgProp>) => {
-      return (
-        <div
-          className="customInnerHeaderGroup"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            width: "100%",
-            minWidth: 0,
-          }}
-        >
-          <div className="org-grid-header-label" title={params.displayName}>
-            {params.displayName}
-          </div>
-          {rowData.some((op) => op.edit && op.new !== op.current) && (
-            <Button icon={<Save20Filled />} onClick={onSavePrimary} />
-          )}
-        </div>
-      );
-    },
-  );
-
-  const saveHeaderSecondaryButton = observer(
-    (params: CustomInnerHeaderProps<orgProp>) => {
+  const createSaveHeader = (slot: number) =>
+    observer((params: CustomInnerHeaderProps<orgProp>) => {
       return (
         <div
           className="customInnerHeaderGroup"
@@ -240,12 +220,11 @@ export const OrgSettingsGrid = (
             {params.displayName}
           </div>
           {rowData.some(
-            (op) => op.edit && op.secondaryNew !== op.secondaryCurrent,
-          ) && <Button icon={<Save20Filled />} onClick={onSaveSecondary} />}
+            (op) => op.edit && getSlotNew(op, slot) !== getSlotCurrent(op, slot),
+          ) && <Button icon={<Save20Filled />} onClick={() => onSave(slot)} />}
         </div>
       );
-    },
-  );
+    });
 
   const cellIcon = observer((params: CustomCellRendererProps<orgProp>) => (
     <div
@@ -281,48 +260,66 @@ export const OrgSettingsGrid = (
   ));
 
   const columnDefs = React.useMemo(() => {
-    const secondaryHeaders: ColGroupDef<orgProp>[] = secondaryConnectionName
-      ? [
-          {
-            headerName: secondaryConnectionName,
-            children: [
-              {
-                field: "secondaryCurrent",
-                headerName: "Current Value",
-                flex: 1,
-                minWidth: 160,
-                cellStyle: (params: { data?: orgProp }) =>
-                  getCompareCellStyle(
-                    params.data?.secondaryCurrent ?? null,
-                    params.data?.current ?? undefined,
-                  ),
-                cellRenderer: (params: { value?: string }) =>
-                  renderCompactValue(params.value),
-              },
-              {
-                field: "secondaryNew",
-                flex: 1,
-                minWidth: 160,
-                headerName: "New Value",
-                headerComponent: saveHeaderSecondaryButton,
-                cellStyle: (params: { data?: orgProp }) =>
-                  getCompareCellStyle(
-                    params.data?.secondaryNew ?? null,
-                    params.data?.new ?? undefined,
-                  ),
-                cellRenderer: (params: { data: orgProp }) =>
-                  params.data ? (
-                    <InputControl
-                      item={params.data}
-                      setItemNewValue={setItemNewValue}
-                      secondary={true}
-                    />
-                  ) : null,
-              },
-            ],
-          },
-        ]
-      : [];
+    const getOtherValues = (
+      row: orgProp | undefined,
+      slot: number,
+      kind: "current" | "new",
+    ): unknown[] => {
+      if (!row) {
+        return [];
+      }
+      const get = kind === "current" ? getSlotCurrent : getSlotNew;
+      // Slot 0 is compared against every other slot, others against slot 0.
+      return slot === 0
+        ? comparedSlots.map((s) => get(row, s))
+        : [get(row, 0) ?? undefined];
+    };
+
+    const slotHeaders = (slot: number): ColGroupDef<orgProp> => ({
+      headerName:
+        slot === 0
+          ? (connectionNames[0] ?? "Primary Connection")
+          : (connectionNames[slot] ?? ""),
+      children: [
+        {
+          colId: `current-${slot}`,
+          valueGetter: (params: { data?: orgProp }) =>
+            params.data ? getSlotCurrent(params.data, slot) : undefined,
+          headerName: "Current Value",
+          flex: 1,
+          minWidth: 160,
+          cellStyle: (params: { data?: orgProp }) =>
+            getCompareCellStyle(
+              params.data ? (getSlotCurrent(params.data, slot) ?? null) : null,
+              getOtherValues(params.data, slot, "current"),
+            ),
+          cellRenderer: (params: { value?: string }) =>
+            renderCompactValue(params.value),
+        },
+        {
+          colId: `new-${slot}`,
+          valueGetter: (params: { data?: orgProp }) =>
+            params.data ? getSlotNew(params.data, slot) : undefined,
+          flex: 1,
+          minWidth: 160,
+          headerName: "New Value",
+          headerComponent: createSaveHeader(slot),
+          cellStyle: (params: { data?: orgProp }) =>
+            getCompareCellStyle(
+              params.data ? (getSlotNew(params.data, slot) ?? null) : null,
+              getOtherValues(params.data, slot, "new"),
+            ),
+          cellRenderer: (params: { data: orgProp }) =>
+            params.data ? (
+              <InputControl
+                item={params.data}
+                setItemNewValue={setItemNewValue}
+                slot={slot}
+              />
+            ) : null,
+        },
+      ],
+    });
 
     return [
       {
@@ -361,54 +358,15 @@ export const OrgSettingsGrid = (
           },
         ],
       },
-      {
-        headerName: connectionName ?? "Primary Connection",
-        children: [
-          {
-            field: "current",
-            headerName: "Current Value",
-            flex: 1,
-            minWidth: 160,
-            cellStyle: (params: { data?: orgProp }) =>
-              getCompareCellStyle(
-                params.data?.current ?? null,
-                params.data?.secondaryCurrent ?? undefined,
-              ),
-            cellRenderer: (params: { value?: string }) =>
-              renderCompactValue(params.value),
-          },
-          {
-            field: "new",
-            flex: 1,
-            minWidth: 160,
-            headerName: "New Value",
-            headerComponent: saveHeaderButton,
-            cellStyle: (params: { data?: orgProp }) =>
-              getCompareCellStyle(
-                params.data?.new ?? null,
-                params.data?.secondaryNew ?? undefined,
-              ),
-            cellRenderer: (params: { data: orgProp }) =>
-              params.data ? (
-                <InputControl
-                  item={params.data}
-                  setItemNewValue={setItemNewValue}
-                  secondary={false}
-                />
-              ) : null,
-          },
-        ],
-      },
-      ...secondaryHeaders,
+      slotHeaders(0),
+      ...comparedSlots.map(slotHeaders),
     ] as ColGroupDef<orgProp>[];
   }, [
-    secondaryConnectionName,
-    connectionName,
-    saveHeaderSecondaryButton,
+    connectionNamesKey,
     setItemNewValue,
-    cellIcon,
-    cellInfo,
-    saveHeaderButton,
+    onSave,
+    rowData,
+    getCompareCellStyle,
     topLeftHeader,
     renderCompactValue,
   ]);

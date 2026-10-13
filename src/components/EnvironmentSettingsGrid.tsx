@@ -18,12 +18,34 @@ import {
 
 export type EnvSettingValue = string | number | boolean | null;
 
+export function getEnvSlotCurrent(row: EnvApiGridRow, slot: number): EnvSettingValue | undefined {
+  return slot === 0 ? row.current : row.others?.[slot]?.current;
+}
+
+export function getEnvSlotNew(row: EnvApiGridRow, slot: number): EnvSettingValue | undefined {
+  return slot === 0 ? row.new : row.others?.[slot]?.new;
+}
+
+// Slots 1..n that have a connection name (index = connection slot).
+function getComparedSlots(connectionNames: Array<string | undefined>) {
+  return connectionNames
+    .map((name, slot) => (slot > 0 && name ? slot : -1))
+    .filter((slot) => slot > 0);
+}
+
+function rowDiffers(row: EnvApiGridRow, slots: number[]): boolean {
+  return slots.some(
+    (slot) =>
+      comparisonValuesDiffer(row.current, getEnvSlotCurrent(row, slot)) ||
+      comparisonValuesDiffer(row.new, getEnvSlotNew(row, slot)),
+  );
+}
+
 export interface EnvApiGridRow {
   property: string;
   current: EnvSettingValue;
   new: EnvSettingValue;
-  secondaryCurrent?: EnvSettingValue;
-  secondaryNew?: EnvSettingValue;
+  others?: Array<{ current: EnvSettingValue; new: EnvSettingValue } | undefined>;
   shortDescription?: string;
   link?: string;
   edit: boolean;
@@ -36,63 +58,55 @@ interface EnvironmentSettingsGridProps {
   error: string | null;
   isLoaded: boolean;
   rows: EnvApiGridRow[];
-  connectionName?: string;
-  secondaryConnectionName?: string;
+  connectionNames: Array<string | undefined>;
   showOnlyDifferences: boolean;
   theme: Theme | "legacy";
-  isSaving: boolean;
-  isSecondarySaving: boolean;
-  hasPendingChanges: boolean;
-  hasSecondaryPendingChanges: boolean;
+  savingSlots: boolean[];
+  pendingSlots: boolean[];
   onToggleEdit: (property: string, edit: boolean) => void;
   onNewValueChange: (
     property: string,
     nextValue: EnvSettingValue,
-    secondary?: boolean,
+    slot?: number,
   ) => void;
-  onSave: () => void;
-  onSaveSecondary: () => void;
+  onSave: (slot: number) => void;
   onExportRegistration?: (registration: GridExportRegistration) => void;
 }
 
 export function createEnvironmentSettingsSheet(
   rows: EnvApiGridRow[],
-  connectionName?: string,
-  secondaryConnectionName?: string,
+  connectionNames: Array<string | undefined>,
   showOnlyDifferences = false,
 ): ExcelSheet {
+  const slots = getComparedSlots(connectionNames);
   const exportRows =
-    secondaryConnectionName && showOnlyDifferences
-      ? rows.filter(
-          (row) =>
-            comparisonValuesDiffer(row.current, row.secondaryCurrent) ||
-            comparisonValuesDiffer(row.new, row.secondaryNew),
-        )
+    slots.length > 0 && showOnlyDifferences
+      ? rows.filter((row) => rowDiffers(row, slots))
       : rows;
+  const allSlots = [0, ...slots];
 
   return {
     name: "Environment Settings",
     columns: [
       { header: "Property", width: 42 },
-      { header: `${connectionName ?? "Primary Connection"} - Current`, width: 28 },
-      { header: `${connectionName ?? "Primary Connection"} - New`, width: 28 },
-      ...(secondaryConnectionName
-        ? [
-            {
-              header: `${secondaryConnectionName} - Current`,
-              width: 28,
-            },
-            { header: `${secondaryConnectionName} - New`, width: 28 },
-          ]
-        : []),
+      ...allSlots.flatMap((slot) => {
+        const name = connectionNames[slot] ?? "Primary Connection";
+        return [
+          { header: `${name} - Current`, width: 28 },
+          { header: `${name} - New`, width: 28 },
+        ];
+      }),
     ],
     rows: exportRows.map((row) => [
       row.property,
-      row.current,
-      row.new,
-      ...(secondaryConnectionName
-        ? [row.secondaryCurrent ?? "", row.secondaryNew ?? ""]
-        : []),
+      ...allSlots.flatMap((slot) =>
+        slot === 0
+          ? [row.current, row.new]
+          : [
+              getEnvSlotCurrent(row, slot) ?? "",
+              getEnvSlotNew(row, slot) ?? "",
+            ],
+      ),
     ]),
   };
 }
@@ -105,28 +119,23 @@ export const EnvironmentSettingsGrid = (
     error,
     isLoaded,
     rows,
-    connectionName,
-    secondaryConnectionName,
+    connectionNames,
     showOnlyDifferences,
     theme,
-    isSaving,
-    isSecondarySaving,
-    hasPendingChanges,
-    hasSecondaryPendingChanges,
+    savingSlots,
+    pendingSlots,
     onToggleEdit,
     onNewValueChange,
     onSave,
-    onSaveSecondary,
     onExportRegistration,
   } = props;
   const gridRef = React.useRef<AgGridReact<EnvApiGridRow>>(null);
+  const connectionNamesKey = connectionNames.map((n) => n ?? "").join("|");
+  const comparedSlots = getComparedSlots(connectionNames);
+  const hasComparison = comparedSlots.length > 0;
   const visibleRows =
-    secondaryConnectionName && showOnlyDifferences
-      ? rows.filter(
-          (row) =>
-            comparisonValuesDiffer(row.current, row.secondaryCurrent) ||
-            comparisonValuesDiffer(row.new, row.secondaryNew),
-        )
+    hasComparison && showOnlyDifferences
+      ? rows.filter((row) => rowDiffers(row, comparedSlots))
       : rows;
   const registerExport = React.useCallback(() => {
     const api = gridRef.current?.api;
@@ -136,16 +145,15 @@ export const EnvironmentSettingsGrid = (
 
     onExportRegistration({
       id: "environment-settings",
-      contextKey: `${connectionName ?? ""}|${secondaryConnectionName ?? ""}`,
+      contextKey: connectionNamesKey,
       rowCount: getDisplayedGridRows(api).length,
       getSheet: () =>
         createEnvironmentSettingsSheet(
           getDisplayedGridRows(api),
-          connectionName,
-          secondaryConnectionName,
+          connectionNamesKey.split("|").map((n) => n || undefined),
         ),
     });
-  }, [connectionName, onExportRegistration, secondaryConnectionName]);
+  }, [connectionNamesKey, onExportRegistration]);
 
   React.useEffect(registerExport, [registerExport]);
 
@@ -163,19 +171,16 @@ export const EnvironmentSettingsGrid = (
   );
 
   const getCompareCellStyle = React.useCallback(
-    (leftValue: EnvSettingValue, rightValue?: EnvSettingValue) => {
-      if (!secondaryConnectionName || rightValue === undefined) {
-        return undefined;
-      }
-
+    (leftValue: EnvSettingValue, rightValues: Array<EnvSettingValue | undefined>) => {
       const leftText =
         leftValue === null || leftValue === undefined ? "" : String(leftValue);
-      const rightText =
-        rightValue === null || rightValue === undefined
-          ? ""
-          : String(rightValue);
+      const differs = rightValues.some(
+        (rightValue) =>
+          rightValue !== undefined &&
+          (rightValue === null ? "" : String(rightValue)) !== leftText,
+      );
 
-      if (leftText === rightText) {
+      if (!hasComparison || !differs) {
         return undefined;
       }
 
@@ -184,7 +189,7 @@ export const EnvironmentSettingsGrid = (
         borderLeft: "3px solid #ffbf00",
       };
     },
-    [secondaryConnectionName],
+    [hasComparison],
   );
 
   const renderCompactValue = React.useCallback(
@@ -199,57 +204,31 @@ export const EnvironmentSettingsGrid = (
     [formatCurrentValueText],
   );
 
-  const saveHeaderButton = React.useCallback(
-    (params: CustomInnerHeaderProps<EnvApiGridRow>) => (
-      <div
-        className="customInnerHeaderGroup"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          minWidth: 0,
-        }}
-      >
-        <div className="env-grid-header-label" title={params.displayName}>
-          {params.displayName}
+  const createSaveHeader = (slot: number) =>
+    function SaveHeader(params: CustomInnerHeaderProps<EnvApiGridRow>) {
+      return (
+        <div
+          className="customInnerHeaderGroup"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            width: "100%",
+            minWidth: 0,
+          }}
+        >
+          <div className="env-grid-header-label" title={params.displayName}>
+            {params.displayName}
+          </div>
+          {pendingSlots[slot] && (
+            <Button
+              icon={<Save20Filled />}
+              disabled={savingSlots[slot]}
+              onClick={() => onSave(slot)}
+            />
+          )}
         </div>
-        {hasPendingChanges && (
-          <Button
-            icon={<Save20Filled />}
-            disabled={isSaving}
-            onClick={onSave}
-          />
-        )}
-      </div>
-    ),
-    [hasPendingChanges, isSaving, onSave],
-  );
-
-  const saveHeaderSecondaryButton = React.useCallback(
-    (params: CustomInnerHeaderProps<EnvApiGridRow>) => (
-      <div
-        className="customInnerHeaderGroup"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          width: "100%",
-          minWidth: 0,
-        }}
-      >
-        <div className="env-grid-header-label" title={params.displayName}>
-          {params.displayName}
-        </div>
-        {hasSecondaryPendingChanges && (
-          <Button
-            icon={<Save20Filled />}
-            disabled={isSecondarySaving}
-            onClick={onSaveSecondary}
-          />
-        )}
-      </div>
-    ),
-    [hasSecondaryPendingChanges, isSecondarySaving, onSaveSecondary],
-  );
+      );
+    };
 
   const renderValueControl = React.useCallback(
     (
@@ -350,75 +329,92 @@ export const EnvironmentSettingsGrid = (
   );
 
   const resolvedColumnDefs = React.useMemo(() => {
-    const secondaryHeaders: ColGroupDef<EnvApiGridRow>[] =
-      secondaryConnectionName
-        ? [
-            {
-              headerName: secondaryConnectionName,
-              children: [
-                {
-                  field: "secondaryCurrent",
-                  headerName: "Current Value",
-                  minWidth: 160,
-                  flex: 1,
-                  filter: true,
-                  sortable: true,
-                  resizable: true,
-                  cellStyle: (params: { data?: EnvApiGridRow }) =>
-                    getCompareCellStyle(
-                      params.data?.secondaryCurrent ?? null,
-                      params.data?.current ?? undefined,
-                    ),
-                  cellRenderer: (params: { value?: EnvSettingValue }) => {
-                    return renderCompactValue(params.value ?? null);
-                  },
-                },
-                {
-                  field: "secondaryNew",
-                  headerName: "New Value",
-                  minWidth: 160,
-                  flex: 1,
-                  filter: true,
-                  sortable: true,
-                  resizable: true,
-                  headerComponent: saveHeaderSecondaryButton,
-                  cellStyle: (params: { data?: EnvApiGridRow }) =>
-                    getCompareCellStyle(
-                      params.data?.secondaryNew ?? null,
-                      params.data?.new ?? undefined,
-                    ),
-                  cellRenderer: (params: {
-                    data?: EnvApiGridRow;
-                    value?: EnvSettingValue;
-                  }) => {
-                    const row = params.data;
-                    const value = params.value;
+    const getOtherValues = (
+      row: EnvApiGridRow | undefined,
+      slot: number,
+      kind: "current" | "new",
+    ): Array<EnvSettingValue | undefined> => {
+      if (!row) {
+        return [];
+      }
+      const get = kind === "current" ? getEnvSlotCurrent : getEnvSlotNew;
+      // Slot 0 is compared against every other slot, others against slot 0.
+      return slot === 0
+        ? comparedSlots.map((s) => get(row, s))
+        : [get(row, 0) ?? undefined];
+    };
 
-                    if (!row) {
-                      return null;
-                    }
+    const slotHeaders = (slot: number): ColGroupDef<EnvApiGridRow> => ({
+      headerName:
+        slot === 0
+          ? (connectionNames[0] ?? "Primary Connection")
+          : (connectionNames[slot] ?? ""),
+      children: [
+        {
+          colId: `current-${slot}`,
+          valueGetter: (params: { data?: EnvApiGridRow }) =>
+            params.data ? getEnvSlotCurrent(params.data, slot) : undefined,
+          headerName: "Current Value",
+          minWidth: 160,
+          flex: 1,
+          filter: true,
+          sortable: true,
+          resizable: true,
+          cellStyle: (params: { data?: EnvApiGridRow }) =>
+            getCompareCellStyle(
+              (params.data ? getEnvSlotCurrent(params.data, slot) : null) ??
+                null,
+              getOtherValues(params.data, slot, "current"),
+            ),
+          cellRenderer: (params: { value?: EnvSettingValue }) => {
+            return renderCompactValue(params.value ?? null);
+          },
+        },
+        {
+          colId: `new-${slot}`,
+          valueGetter: (params: { data?: EnvApiGridRow }) =>
+            params.data ? getEnvSlotNew(params.data, slot) : undefined,
+          headerName: "New Value",
+          minWidth: 160,
+          flex: 1,
+          filter: true,
+          sortable: true,
+          resizable: true,
+          headerComponent: createSaveHeader(slot),
+          cellStyle: (params: { data?: EnvApiGridRow }) =>
+            getCompareCellStyle(
+              (params.data ? getEnvSlotNew(params.data, slot) : null) ?? null,
+              getOtherValues(params.data, slot, "new"),
+            ),
+          cellRenderer: (params: {
+            data?: EnvApiGridRow;
+            value?: EnvSettingValue;
+          }) => {
+            const row = params.data;
+            const value = params.value;
 
-                    if (row.editable === false) {
-                      return renderCompactValue(value ?? null);
-                    }
+            if (!row) {
+              return null;
+            }
 
-                    if (!row.edit) {
-                      return renderCompactValue(value ?? null);
-                    }
+            if (row.editable === false) {
+              return renderCompactValue(value ?? null);
+            }
 
-                    return renderValueControl(
-                      row,
-                      value ?? null,
-                      (nextValue) =>
-                        onNewValueChange(row.property, nextValue, true),
-                      false,
-                    );
-                  },
-                },
-              ],
-            },
-          ]
-        : [];
+            if (!row.edit) {
+              return renderCompactValue(value ?? null);
+            }
+
+            return renderValueControl(
+              row,
+              value ?? null,
+              (nextValue) => onNewValueChange(row.property, nextValue, slot),
+              false,
+            );
+          },
+        },
+      ],
+    });
 
     return [
       {
@@ -475,80 +471,19 @@ export const EnvironmentSettingsGrid = (
           return renderCompactValue(params.value ?? null);
         },
       },
-      {
-        headerName: connectionName ?? "Primary Connection",
-        children: [
-          {
-            field: "current",
-            headerName: "Current Value",
-            minWidth: 160,
-            flex: 1,
-            filter: true,
-            sortable: true,
-            resizable: true,
-            cellStyle: (params: { data?: EnvApiGridRow }) =>
-              getCompareCellStyle(
-                params.data?.current ?? null,
-                params.data?.secondaryCurrent ?? undefined,
-              ),
-            cellRenderer: (params: { value?: EnvSettingValue }) => {
-              return renderCompactValue(params.value ?? null);
-            },
-          },
-          {
-            field: "new",
-            headerName: "New Value",
-            minWidth: 160,
-            flex: 1,
-            filter: true,
-            sortable: true,
-            resizable: true,
-            headerComponent: saveHeaderButton,
-            cellStyle: (params: { data?: EnvApiGridRow }) =>
-              getCompareCellStyle(
-                params.data?.new ?? null,
-                params.data?.secondaryNew ?? undefined,
-              ),
-            cellRenderer: (params: {
-              data?: EnvApiGridRow;
-              value?: EnvSettingValue;
-            }) => {
-              const row = params.data;
-              const value = params.value;
-
-              if (!row) {
-                return null;
-              }
-
-              if (row.editable === false) {
-                return renderCompactValue(value ?? null);
-              }
-
-              if (!row.edit) {
-                return renderCompactValue(value ?? null);
-              }
-
-              return renderValueControl(
-                row,
-                value ?? null,
-                (nextValue) => onNewValueChange(row.property, nextValue, false),
-                false,
-              );
-            },
-          },
-        ],
-      },
-      ...secondaryHeaders,
+      slotHeaders(0),
+      ...comparedSlots.map(slotHeaders),
     ] satisfies (ColDef<EnvApiGridRow> | ColGroupDef<EnvApiGridRow>)[];
   }, [
-    connectionName,
+    connectionNamesKey,
+    getCompareCellStyle,
     onNewValueChange,
     onToggleEdit,
+    onSave,
     renderCompactValue,
     renderValueControl,
-    saveHeaderButton,
-    saveHeaderSecondaryButton,
-    secondaryConnectionName,
+    pendingSlots,
+    savingSlots,
   ]);
 
   if (isLoading) {

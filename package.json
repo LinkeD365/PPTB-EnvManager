@@ -1,6 +1,6 @@
 {
   "name": "@linked365/pptb-environment-manager",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "displayName": "Environment Manager",
   "description": "A Power Platform Tool Box tool to manage optional settings per environment.",
   "main": "index.html",
@@ -20,7 +20,10 @@
     "toolbox"
   ],
   "features": {
-    "multiConnection": "optional"
+    "connections": {
+      "min": 1,
+      "max": 5
+    }
   },
   "configurations": {
     "repository": "https://github.com/LinkeD365/PPTB-EnvManager",
@@ -71,7 +74,7 @@
     "write-excel-file": "^2.3.10"
   },
   "devDependencies": {
-    "@pptb/types": "^1.2.4-beta.6",
+    "@pptb/types": "^1.2.7",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
