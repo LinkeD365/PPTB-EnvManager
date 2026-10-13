@@ -787,17 +787,30 @@ export const EnvManager = observer(
                 return row;
               }
 
+              let updatedRow: EnvApiGridRow;
               if (slot > 0) {
                 const others = [...(row.others ?? [])];
-                others[slot] = { current: updatedValue, new: updatedValue };
-                return { ...row, others, edit: false };
+                const newValue = others[slot]?.new;
+                others[slot] = {
+                  current: updatedValue,
+                  new: newValue === undefined ? updatedValue : newValue,
+                };
+                updatedRow = { ...row, others };
+              } else {
+                updatedRow = {
+                  ...row,
+                  current: updatedValue,
+                  new: row.new === undefined ? updatedValue : row.new,
+                };
               }
 
               return {
-                ...row,
-                current: updatedValue,
-                new: updatedValue,
-                edit: false,
+                ...updatedRow,
+                edit:
+                  updatedRow.new !== updatedRow.current ||
+                  updatedRow.others?.some(
+                    (other) => other && other.new !== other.current,
+                  ) === true,
               };
             }),
           );
@@ -1061,6 +1074,14 @@ export const EnvManager = observer(
       }
 
       const conn = slot === 0 ? connection : connections[slot];
+      const savedValues = new Map<orgProp, string>(
+        editedItems.map(
+          (item): [orgProp, string] => [
+            item,
+            getSlotNew(item, slot) ?? getSlotCurrent(item, slot) ?? "",
+          ],
+        ),
+      );
       (async () => {
         if (!conn) {
           await window.toolboxAPI.utils.showNotification({
@@ -1108,8 +1129,18 @@ export const EnvManager = observer(
               });
             });
 
+          runInAction(() => {
+            savedValues.forEach((savedValue, item) => {
+              setSlotCurrent(item, slot, savedValue);
+              item.edit = connections.some(
+                (_, pendingSlot) =>
+                  getSlotNew(item, pendingSlot) !==
+                  getSlotCurrent(item, pendingSlot),
+              );
+            });
+          });
+
           onLog("Organization settings saved", "success");
-          fetchOrgSettings();
         } catch (err) {
           await window.toolboxAPI.utils.showNotification({
             title: "Failed to save organization settings",

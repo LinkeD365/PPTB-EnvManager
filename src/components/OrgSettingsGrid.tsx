@@ -117,7 +117,7 @@ export const OrgSettingsGrid = (
     onExportRegistration,
   } = props;
   const gridRef = React.useRef<AgGridReact<orgProp>>(null);
-  const connectionNamesKey = connectionNames.map((n) => n ?? "").join("|");
+  const connectionNamesKey = JSON.stringify(connectionNames);
   const comparedSlots = getComparedSlots(connectionNames);
   const hasComparison = comparedSlots.length > 0;
   const visibleRows =
@@ -137,7 +137,9 @@ export const OrgSettingsGrid = (
       getSheet: () =>
         createOrgSettingsSheet(
           getDisplayedGridRows(api),
-          connectionNamesKey.split("|").map((n) => n || undefined),
+          (JSON.parse(connectionNamesKey) as Array<string | null>).map(
+            (n) => n ?? undefined,
+          ),
         ),
     });
   }, [connectionNamesKey, onExportRegistration]);
