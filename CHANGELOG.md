@@ -25,6 +25,13 @@
 * [2026-10-18] enable required Power Platform APIs and add automated test scripts
 * [2026-10-18] add component tests for all React components
 
+## [1.1.0](https://github.com/LinkeD365/PPTB-EnvManager/compare/1.0.2...1.1.0) (2026-10-13)
+
+
+### Features
+
+* update @pptb/types to 1.2.7 and support up to 5 connections ([978f64d](https://github.com/LinkeD365/PPTB-EnvManager/commit/978f64d691e7a45eead661d5494e212bfeb11631))
+
 ## [1.0.2](https://github.com/LinkeD365/PPTB-EnvManager/compare/1.0.1...1.0.2) (2026-09-23)
 
 
