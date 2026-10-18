@@ -134,6 +134,9 @@ export class dvService {
       throw new Error("The organization settings query did not return an organization id.");
     }
     const orgSettingsString = String(organization.orgdborgsettings ?? "");
+    const diagnostic = `Organization settings XML received (slot ${slot}, connection ${conn.id}, organization ${orgid}):\n${orgSettingsString}`;
+    this.onLog(diagnostic, "info");
+    console.info(diagnostic);
     if (!orgSettingsString.trim()) {
       this.onLog("Organization settings loaded", "success");
       return [orgid, []];
@@ -143,8 +146,9 @@ export class dvService {
     if (xmlDoc.querySelector("parsererror")) {
       throw new Error("The organization's settings XML could not be parsed.");
     }
-    if (xmlDoc.documentElement.tagName !== "orgSettings") {
-      throw new Error("The organization's settings XML must have an orgSettings root.");
+    const rootName = xmlDoc.documentElement.tagName;
+    if (rootName !== "orgSettings" && rootName !== "OrgSettings") {
+      throw new Error(`The organization's settings XML must have an OrgSettings or orgSettings root; received ${rootName}.`);
     }
 
     const currentRows = Array.from(xmlDoc.documentElement.children).map((node) => {

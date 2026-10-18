@@ -53,6 +53,9 @@ fresh read may still race with the update. Organization setting values are
 XML-escaped and setting names validated before serialization. Environment-group
 policy saves use fresh policy payloads for PUT/PATCH operations and warn that a
 multi-request save may be partially applied if a later request fails.
+After a successful policy save, reconciliation updates the current value to
+the submitted value while preserving any newer draft, its pending edit state,
+and its dependency-update flag. Drafts matching the saved value leave edit mode.
 
 `src/utils/writeTarget.ts` verifies the current host connection slot after the
 server preflight and immediately before every write, including every request
@@ -63,14 +66,19 @@ verify the host connection surfaces as an error. The host lookup and write are
 separate calls, not an atomic connection lock.
 
 Organization XML reads treat null, empty, and whitespace-only values as an
-empty settings collection. Populated XML must have an `orgSettings` root;
-only child elements become settings. Formatting whitespace and comments are
+empty settings collection. Populated XML must have an `OrgSettings` or
+`orgSettings` root; both are accepted on reads, while writes retain the existing
+`orgSettings` serialization.
+Only child elements become settings. Formatting whitespace and comments are
 ignored. Nested elements and setting attributes are rejected rather than
 silently lost when the XML is rewritten. Loading an empty settings collection
 still populates the editable catalog and clears previously loaded values.
 
 Grid exports are user initiated and download data locally in Excel, Markdown,
 or CSV format. They do not upload the exported data.
+`EnvManager.tsx` registers AG Grid's `ClientSideRowModelApiModule` alongside the
+row-model module so every grid can collect filtered, sorted rows through
+`forEachNodeAfterFilterAndSort` for export registration and downloads.
 
 ## Connections, errors, and diagnostics
 
@@ -78,8 +86,11 @@ The manifest permits one to five Dataverse connections. Settings grids can
 compare environments and save setting changes for an individual connection.
 Governance operations use the primary connection in the current implementation.
 API failures are surfaced through host notifications and the tool's event log;
-connection refresh failures also show a notification. The tool does not write
-API response payloads or policy values to the developer console.
+connection refresh failures also show a notification.
+For organization-settings troubleshooting, the raw `orgdborgsettings` XML is
+logged before parsing to both the event-log callback and the PPTB Tool DevTools
+console at info level, with the connection, slot, and organization identifiers.
+This diagnostic includes setting values; review and redact it before sharing.
 Policy loading clears stale rows when the primary connection changes and
 surfaces failures both inline and through a host notification.
 
@@ -117,11 +128,15 @@ Component suite responsibilities:
   environment saves, deferred preflight reads, connection changes, pending
   edits, and unmount cancellation.
 - `tests/components/policy-save-safety.test.tsx` — policy PUT/PATCH target
-  verification, cancellation between requests, group changes, and load errors.
+  verification, cancellation between requests, group changes, load errors, and
+  preserving newer drafts and dependency flags during the final write.
 - `tests/services/dataverse.test.ts` — empty, formatted, commented, malformed,
   and unsupported organization XML, and safe serializer round-tripping.
 - `tests/services/writeTarget.test.ts` — slot-aware host verification and local
   review changes while the host lookup is pending.
+- `tests/services/grid-export.test.ts` — real AG Grid API regression coverage
+  for module registration and filtered, sorted export rows. Run it with
+  `npm run test:components -- tests/services/grid-export.test.ts`.
 - `tests/helpers/deferred.ts` — controlled promises for asynchronous regression
   tests; this helper is outside test discovery.
 - `tests/components/setup.ts` — shared cleanup and AG Grid test double.

@@ -872,13 +872,14 @@ export const PoliciesGrid = React.memo(
             (rows) =>
               rows?.map((row) => {
                 const savedValue = savedValuesByKey.get(getRuleKey(row));
+                const hasPendingDraft = row.newValueString !== savedValue;
                 return savedValue !== undefined
                   ? {
                       ...row,
                       currentValueString: savedValue,
-                      edit: false,
+                      edit: hasPendingDraft,
                       isNew: false,
-                      dependencyUpdate: false,
+                      dependencyUpdate: hasPendingDraft && row.dependencyUpdate,
                     }
                   : row;
               }) ?? null,
