@@ -147,9 +147,13 @@ real tenant before making completeness claims.
 
 ## Required live acceptance before submission
 
-These checks remain unverified and must be completed by a maintainer inside
-PPTB against a real non-production environment. Automated tests do not satisfy
-this gate.
+The maintainer confirmed on 2026-10-18 that the human checks passed inside PPTB
+against a real environment; see the [human testing results](./README.md#human-testing).
+This is a maintainer-reported result, not independent verification by the
+automated suite. The PPTB version, environment type, and execution date were
+not supplied. Retain the checklist below for subsequent releases and run
+write tests against a non-production environment. Automated tests do not
+replace these checks.
 
 - Load the packaged tool with one and multiple connections in light and dark
   themes; check the icon, grids, and five-line read-only confirmation preview.

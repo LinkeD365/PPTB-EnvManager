@@ -10,6 +10,7 @@
 
 ### Documentation
 
+* [2026-10-18] add a human testing checklist with maintainer-confirmed passing results and distinguish safe paging rejection from full pagination support
 * [2026-10-18] document exact external metadata sources, AI assistance, and pre-submission acceptance checks
 * [2026-10-18] add implementation reference and link it from the README
 * [2026-10-18] document write effects, confirmation behavior, and upstream credits

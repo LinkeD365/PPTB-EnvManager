@@ -126,6 +126,40 @@ the reviewed local target and edits. A detected connection or edit change
 cancels the save; for multi-request saves, earlier requests may already have
 applied. Reload and review the current values before trying again.
 
+## Human testing
+
+**Passed - maintainer-confirmed on 2026-10-18.** The maintainer confirmed
+that a person completed and passed all checks below inside PPTB against a real
+environment. These are human-reported results, not conclusions drawn from
+automated tests. The PPTB version, environment type, and execution date were
+not supplied with this confirmation.
+
+- [x] Load the packaged tool with one and multiple connections.
+- [x] Check the icon, grids, and full-width, five-line, scrollable read-only
+  confirmation preview in both light and dark themes.
+- [x] Load organizations with no settings overrides and with formatted settings
+  XML; verify the available settings and displayed values.
+- [x] Export organization settings, save a test change, reload, verify unrelated
+  settings are preserved, and restore the original value.
+- [x] Export environment settings, save a test change, reload, verify the result,
+  and restore the original value.
+- [x] Export governance values, save rule set and rule-based policy changes,
+  reload, verify the results, and restore the original values.
+- [x] Exercise a multi-request policy save, including partial application and
+  its warning when a later request cannot proceed.
+- [x] Switch or remove connections during pre-save validation and between policy
+  requests; verify remaining writes do not reach an unreviewed target.
+- [x] Change pending edits or server values after review; verify stale saves
+  are cancelled and require another review.
+- [x] Exercise missing permissions, expired or removed connections, service
+  failures, and empty results; verify errors are visible.
+- [x] Check realistic data volumes and paging behavior; verify recognized
+  continuation responses are rejected rather than shown as complete lists.
+
+Pagination is not implemented; passing the paging check confirms safe rejection,
+not support for loading every page. Repeat these checks after changes affecting
+the tested behavior.
+
 ## AI assistance disclosure
 
 AI assistance was used to implement and review portions of this tool, including
@@ -135,7 +169,7 @@ reviewing and testing all code and behavior before release.
 ## Implementation
 
 For the technical architecture, API integrations, write behavior, and build
-validation commands, see the [implementation reference](./implementation.md).
+validation commands, see the [implementation reference](./IMPLEMENTATION.md).
 
 ## Installation
 
