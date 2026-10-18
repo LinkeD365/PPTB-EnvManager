@@ -1,11 +1,11 @@
 import envGroupRulesFallback from "../data/EnvGrpRules.json";
+import { assertCompleteListResponse } from "./pagedResponse.mjs";
 
 interface EnvironmentApiOptions {
   connectionTarget?: PowerPlatformAPI.ConnectionTarget;
 }
 
 const API_VERSION = "2024-10-01";
-const ENV_GROUP_RULES_URL = "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/main/EnvGrpRules.json";
 
 
 export interface EnvironmentGroupPolicyRule {
@@ -157,16 +157,8 @@ export class EnvironmentManagementUtils {
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `ruleBasedPolicies/environmentGroups/${environmentGroupId}/assignments?api-version=${API_VERSION}`;
-    console.log("[EnvironmentManagementUtils] Fetching environment group policy assignments", {
-      environmentGroupId,
-      endpoint,
-    });
     const response = await window.powerplatformAPI.Governance.Get(endpoint, this.getConnectionTarget(options));
-    console.log("[EnvironmentManagementUtils] Environment group policy assignments response", {
-      environmentGroupId,
-      endpoint,
-      response,
-    });
+    assertCompleteListResponse(response, "environment group policy assignments");
     return response;
   }
 
@@ -175,13 +167,7 @@ export class EnvironmentManagementUtils {
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `ruleBasedPolicies/${policyId}?api-version=${API_VERSION}`;
-    const response = await window.powerplatformAPI.Governance.Get(endpoint, this.getConnectionTarget(options));
-    console.log("[EnvironmentManagementUtils] Rule-based policy response", {
-      policyId,
-      endpoint,
-      response,
-    });
-    return response;
+    return window.powerplatformAPI.Governance.Get(endpoint, this.getConnectionTarget(options));
   }
 
   async getEnvironmentGroupRuleSets(
@@ -189,16 +175,8 @@ export class EnvironmentManagementUtils {
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `environmentGroups/${environmentGroupId}/ruleSets?api-version=${API_VERSION}`;
-    console.log("[EnvironmentManagementUtils] Fetching environment group rule sets", {
-      environmentGroupId,
-      endpoint,
-    });
     const response = await window.powerplatformAPI.Governance.Get(endpoint, this.getConnectionTarget(options));
-    console.log("[EnvironmentManagementUtils] Environment group rule sets response", {
-      environmentGroupId,
-      endpoint,
-      response,
-    });
+    assertCompleteListResponse(response, "environment group rule sets");
     return response;
   }
 
@@ -206,9 +184,8 @@ export class EnvironmentManagementUtils {
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `rulesetUIConfigurations?api-version=${API_VERSION}`;
-    console.log("[EnvironmentManagementUtils] Fetching rule set UI configurations", { endpoint });
     const response = await window.powerplatformAPI.Governance.Get(endpoint, this.getConnectionTarget(options));
-    console.log("[EnvironmentManagementUtils] Rule set UI configurations response", { endpoint, response });
+    assertCompleteListResponse(response, "rule set UI configurations");
     return response;
   }
 
@@ -218,10 +195,7 @@ export class EnvironmentManagementUtils {
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `ruleSets/${ruleSetId}?api-version=${API_VERSION}`;
-    console.log("[EnvironmentManagementUtils] Updating rule set", { ruleSetId, endpoint, ruleSet });
-    const response = await this.putGovernance(endpoint, ruleSet, options);
-    console.log("[EnvironmentManagementUtils] Update rule set response", { ruleSetId, endpoint, response });
-    return response;
+    return this.putGovernance(endpoint, ruleSet, options);
   }
 
   async updateRuleBasedPolicy(
@@ -230,10 +204,7 @@ export class EnvironmentManagementUtils {
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `ruleBasedPolicies/${policyId}?api-version=${API_VERSION}`;
-    console.log("[EnvironmentManagementUtils] Patching rule-based policy", { policyId, endpoint, payload });
-    const response = await this.patchGovernance(endpoint, payload, options);
-    console.log("[EnvironmentManagementUtils] Patch rule-based policy response", { policyId, endpoint, response });
-    return response;
+    return this.patchGovernance(endpoint, payload, options);
   }
 
   async getEnvironmentManagementSettings(
@@ -257,14 +228,18 @@ export class EnvironmentManagementUtils {
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `environmentGroups?api-version=${API_VERSION}`;
-    return this.get(endpoint, options);
+    const response = await this.get(endpoint, options);
+    assertCompleteListResponse(response, "environment groups");
+    return response;
   }
 
   async getEnvironments(
     options?: EnvironmentApiOptions
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `environments?api-version=${API_VERSION}`;
-    return this.get(endpoint, options);
+    const response = await this.get(endpoint, options);
+    assertCompleteListResponse(response, "environments");
+    return response;
   }
 
   private normalizePayloadArray(payload: unknown): unknown[] {
@@ -507,27 +482,12 @@ export class EnvironmentManagementUtils {
     return lookup;
   }
 
-  /**
-   * Fetches friendly rule set names/descriptions from EnvGrpRules.json, preferring the copy hosted on
-   * GitHub (kept up to date independently of releases) and falling back to the bundled local copy if the
-   * network request fails. Cached for the lifetime of this instance.
-   */
+  /** Reads friendly rule metadata from the bundled catalog. */
   private async getEnvGroupRulesLookup(): Promise<Map<string, { name: string; description?: string; properties?: EnvironmentGroupRuleProperty[] }>> {
     if (!this.envGroupRulesLookupPromise) {
-      this.envGroupRulesLookupPromise = (async () => {
-        try {
-          const response = await fetch(ENV_GROUP_RULES_URL);
-          if (!response.ok) {
-            throw new Error(`Network response was not ok (${response.status})`);
-          }
-
-          const payload = await response.json();
-          return this.buildEnvGroupRulesLookup(payload);
-        } catch (err) {
-          console.warn("[EnvironmentManagementUtils] Unable to load EnvGrpRules.json from GitHub, using local fallback", err);
-          return this.buildEnvGroupRulesLookup(envGroupRulesFallback);
-        }
-      })();
+      this.envGroupRulesLookupPromise = Promise.resolve(
+        this.buildEnvGroupRulesLookup(envGroupRulesFallback),
+      );
     }
 
     return this.envGroupRulesLookupPromise;
@@ -1049,15 +1009,7 @@ export class EnvironmentManagementUtils {
     const uiConfigLookup = this.buildRuleSetUIConfigLookup(this.normalizeRuleSetUIConfigurations(uiConfigurationsResponse));
     this.mergeEnvGroupRulesIntoUIConfigLookup(uiConfigLookup, envGroupRulesLookup);
 
-    console.log("[EnvironmentManagementUtils] Environment group policy assignments response", {
-      environmentGroupId,
-      assignmentsResponse,
-    });
     const assignmentRows = this.normalizePayloadArray(assignmentsResponse);
-    console.log("[EnvironmentManagementUtils] Environment group rule sets response", {
-      environmentGroupId,
-      ruleSetsResponse,
-    });
     const coveredParameterTypes = new Set<string>();
     const ruleSetPayloadEntries = this.normalizePayloadArray(ruleSetsResponse);
     const ruleSetRows = ruleSetPayloadEntries.flatMap((entry) =>

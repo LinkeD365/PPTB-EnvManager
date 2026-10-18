@@ -124,14 +124,33 @@ export class dvService {
   </entity>
 </fetch>`;
     const settings = await this.dvApi.fetchXmlQuery(fetchXml, slot);
-    //        setOrgSettings(settings.value[0]);
+    const organization = settings.value[0];
+    if (!organization) {
+      throw new Error("The organization settings query returned no organization.");
+    }
 
+    const orgid = organization.organizationid as string;
+    if (!orgid) {
+      throw new Error("The organization settings query did not return an organization id.");
+    }
+    const orgSettingsString = String(organization.orgdborgsettings ?? "");
+    if (!orgSettingsString.trim()) {
+      this.onLog("Organization settings loaded", "success");
+      return [orgid, []];
+    }
     const parser = new DOMParser();
-    const orgid = settings.value[0].organizationid as string;
-    const orgSettingsString = settings.value[0].orgdborgsettings as string;
     const xmlDoc = parser.parseFromString(orgSettingsString, "text/xml");
+    if (xmlDoc.querySelector("parsererror")) {
+      throw new Error("The organization's settings XML could not be parsed.");
+    }
+    if (xmlDoc.documentElement.tagName !== "orgSettings") {
+      throw new Error("The organization's settings XML must have an orgSettings root.");
+    }
 
-    const currentRows = Array.from(xmlDoc.documentElement.childNodes).map((node) => {
+    const currentRows = Array.from(xmlDoc.documentElement.children).map((node) => {
+      if (node.children.length > 0 || node.attributes.length > 0) {
+        throw new Error(`Organization setting ${node.tagName} must contain only a text value without attributes.`);
+      }
       const setting = new orgProp();
       setting.name = node.nodeName;
       setting.current = node.textContent || "";
@@ -139,8 +158,6 @@ export class dvService {
     });
 
     this.onLog("Organization settings loaded", "success");
-    // Try common wrapper patterns first
-
     return [orgid, currentRows];
   }
   async updateOrgSettingsXml(

@@ -1,8 +1,7 @@
 import envGroupRulesFallback from "../data/EnvGrpRules.json";
+import { assertCompleteListResponse } from "./pagedResponse.mjs";
 
 const API_VERSION = "2024-10-01";
-const ENV_GROUP_RULES_URL =
-  "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/main/EnvGrpRules.json";
 
 export interface EnvGroupRuleRow {
   ruleType: string;
@@ -165,19 +164,11 @@ export class EnvMgmt {
     target?: PowerPlatformAPI.ConnectionTarget,
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const endpoint = `environmentGroups/${environmentGroupId}/ruleSets?api-version=${API_VERSION}`;
-    console.log("[EnvMgmt] Fetching environment group rule sets", {
-      environmentGroupId,
-      endpoint,
-    });
     const response = await window.powerplatformAPI.Governance.Get(
       endpoint,
       target,
     );
-    console.log("[EnvMgmt] Environment group rule sets response", {
-      environmentGroupId,
-      endpoint,
-      response,
-    });
+    assertCompleteListResponse(response, "environment group rule sets");
     return response;
   }
 
@@ -186,14 +177,11 @@ export class EnvMgmt {
     target?: PowerPlatformAPI.ConnectionTarget,
   ): Promise<PowerPlatformAPI.PowerPlatformResponse> {
     const assignedPolicy = `ruleBasedPolicies/environmentGroups/${environmentGroupId}/assignments?api-version=${API_VERSION}`;
-    console.log("[EnvMgmt] Fetching aligned policies", {
-      environmentGroupId,
-      assignedPolicy,
-    });
     const response = await window.powerplatformAPI.Governance.Get(
       assignedPolicy,
       target,
     );
+    assertCompleteListResponse(response, "environment group policy assignments");
     const policyId = String(
       (response as { value?: Array<{ policyId?: unknown }> }).value?.[0]
         ?.policyId ?? "",
@@ -207,14 +195,6 @@ export class EnvMgmt {
       `ruleBasedPolicies/${policyId}?api-version=${API_VERSION}`,
       target,
     );
-    console.log("[EnvMgmt] Rule based policies response", {
-      environmentGroupId,
-      assignedPolicy,
-      policyId,
-      response,
-      policyDetailsResponse,
-    });
-
     return policyDetailsResponse;
   }
 
@@ -228,16 +208,10 @@ export class EnvMgmt {
       this.getRuleBasedPolicies(envGroupId, target),
     ]);
 
-    console.log("[EnvMgmt] getEnvGroupRules", allRules);
-
     if (!currentRuleSets || typeof currentRuleSets !== "object") {
       throw new Error("Invalid response from getEnvironmentGroupRuleSets");
     }
 
-    console.log(
-      "[EnvMgmt] getEnvGroupRules currentRuleSets",
-      JSON.stringify(currentRuleSets),
-    );
     const { currentValuesByKey, updateContextsByKey, firstRuleSet } =
       this.convertCurrentRuleSets(currentRuleSets);
     const policyWithCatalogRuleSets = this.addMissingPolicyRuleSets(
@@ -553,20 +527,89 @@ export class EnvMgmt {
   }
 
   private async getEnvGrpFullSet(): Promise<EnvGroupRuleRow[]> {
-    try {
-      const response = await fetch(ENV_GROUP_RULES_URL);
-      if (!response.ok) {
-        throw new Error("Failed to fetch environment group rules");
-      }
-      const data = await response.json();
-      return data as EnvGroupRuleRow[];
-    } catch (error) {
-      console.error(
-        "Error fetching environment group rules, using fallback",
-        error,
-      );
-      console.log("envGroupRulesFallback: ", envGroupRulesFallback);
-      return envGroupRulesFallback as unknown as EnvGroupRuleRow[];
+    const entries: unknown = envGroupRulesFallback;
+    if (!Array.isArray(entries)) {
+      return [];
     }
+
+    return entries.flatMap((entry): EnvGroupRuleRow[] => {
+      if (!entry || typeof entry !== "object") {
+        return [];
+      }
+
+      const source = entry as Record<string, unknown>;
+      const sourceValue =
+        source.value && typeof source.value === "object"
+          ? (source.value as Record<string, unknown>)
+          : {};
+      const choices = Array.isArray(sourceValue.choices)
+        ? sourceValue.choices.flatMap((choice): EnvGroupChoice[] => {
+            if (!choice || typeof choice !== "object") {
+              return [];
+            }
+            const option = choice as Record<string, unknown>;
+            const value = option.value;
+            if (
+              (typeof value !== "string" && typeof value !== "number") ||
+              typeof option.label !== "string"
+            ) {
+              return [];
+            }
+            return [{
+              value,
+              label: option.label,
+              visible:
+                typeof option.visible === "boolean"
+                  ? option.visible
+                  : undefined,
+              default:
+                typeof option.default === "boolean"
+                  ? option.default
+                  : undefined,
+            }];
+          })
+        : [];
+      const text = (key: string, fallback = ""): string =>
+        typeof source[key] === "string" ? (source[key] as string) : fallback;
+
+      return [{
+        ruleType: text("ruleType", "ruleSet"),
+        resourceType: text("resourceType", "NotSpecified"),
+        type: text("type"),
+        ruleId:
+          text("ruleId", text("groupId")) ||
+          (typeof sourceValue.id === "string" ? sourceValue.id : ""),
+        groupId: text("groupId"),
+        dataType: text("dataType", "text"),
+        value: {
+          id: typeof sourceValue.id === "string" ? sourceValue.id : "",
+          value:
+            typeof sourceValue.value === "string" ? sourceValue.value : "",
+          choices,
+          min: typeof sourceValue.min === "number" ? sourceValue.min : undefined,
+          max: typeof sourceValue.max === "number" ? sourceValue.max : undefined,
+          allowNoLimit:
+            typeof sourceValue.allowNoLimit === "boolean"
+              ? sourceValue.allowNoLimit
+              : undefined,
+        },
+        shortDescription: text("shortDescription"),
+        longDescription: text("longDescription", text("longDecscription")),
+        policyInputKey: text("policyInputKey") || undefined,
+        policyValuePath: text("policyValuePath") || undefined,
+        policyEditor:
+          source.policyEditor === "knowledgeSourceUrls"
+            ? "knowledgeSourceUrls"
+            : undefined,
+        parentRuleId: text("parentRuleId") || undefined,
+        childValueWhenDisabled: source.childValueWhenDisabled,
+        childEnabledValue: source.childEnabledValue,
+        currentValueString: "",
+        newValueString: "",
+        edit: false,
+        editable: false,
+        isNew: false,
+      }];
+    });
   }
 }
