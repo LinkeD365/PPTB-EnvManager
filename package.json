@@ -4,7 +4,7 @@
   "displayName": "Environment Manager",
   "description": "A Power Platform Tool Box tool to manage optional settings per environment.",
   "main": "index.html",
-  "icon": "Linked365Logo.svg",
+  "icon": "envManager.svg",
   "contributors": [
     {
       "name": "LinkeD365",
