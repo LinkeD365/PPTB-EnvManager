@@ -43,6 +43,13 @@ import { KnowledgeSourceEditor } from "./KnowledgeSourceEditor";
 import { ConnectorsGrid, createConnectorsSheet } from "./ConnectorsGrid";
 import { comparisonValuesDiffer } from "./ComparisonFilterButton";
 import { ExcelExportButtons } from "./ExcelExportButtons";
+import { WriteConfirmationDialog } from "./WriteConfirmationDialog";
+import { assertWriteTarget, WriteTargetChangedError } from "../utils/writeTarget";
+import {
+  createWriteConfirmation,
+  haveReviewedValues,
+  type WriteConfirmation,
+} from "../utils/writeConfirmation.mjs";
 import {
   getDisplayedGridRows,
   type ExcelSheet,
@@ -59,9 +66,18 @@ ModuleRegistry.registerModules([
 
 interface PoliciesGridProps {
   groups: EnvironmentGroupRow[];
+  connection: ToolBoxAPI.DataverseConnection | null;
   theme?: Theme | "legacy";
   showOnlyDifferences: boolean;
   onBack: () => void;
+}
+
+interface PendingPolicySave {
+  secondary: boolean;
+  groupId: string;
+  connectionId: string;
+  changes: Array<{ key: string; currentValue: string; value: string }>;
+  confirmation: WriteConfirmation;
 }
 
 interface PolicyCompareRow {
@@ -446,6 +462,7 @@ function applyPolicyValueUpdate(
 export const PoliciesGrid = React.memo(
   ({
     groups,
+    connection,
     theme = "legacy",
     showOnlyDifferences,
     onBack,
@@ -467,6 +484,16 @@ export const PoliciesGrid = React.memo(
     );
     const [saving, setSaving] = React.useState(false);
     const [savingSecondary, setSavingSecondary] = React.useState(false);
+    const [pendingSave, setPendingSave] =
+      React.useState<PendingPolicySave | null>(null);
+    const [loadError, setLoadError] = React.useState<string | null>(null);
+    const currentRef = React.useRef({ connection, groups, loadedRules, secondaryRules });
+    currentRef.current = { connection, groups, loadedRules, secondaryRules };
+    const mountedRef = React.useRef(false);
+    React.useEffect(() => {
+      mountedRef.current = true;
+      return () => { mountedRef.current = false; };
+    }, []);
     const policyGridRef = React.useRef<AgGridReact<PolicyCompareRow>>(null);
     const [policyExport, setPolicyExport] =
       React.useState<GridExportRegistration | null>(null);
@@ -589,7 +616,7 @@ export const PoliciesGrid = React.memo(
     );
 
     const saveChanges = React.useCallback(
-      async (secondary = false) => {
+      async (secondary = false, confirmedSave?: PendingPolicySave) => {
         const rules = secondary ? secondaryRules : loadedRules;
         const group = groups[secondary ? 1 : 0];
         const changedRows = (rules ?? []).filter(
@@ -601,21 +628,143 @@ export const PoliciesGrid = React.memo(
         );
 
         if (changedRows.length === 0) {
-          console.log("[PoliciesGrid] save skipped: no changed editable rows");
           return;
         }
 
-        const saveStartedAt = Date.now();
-        console.log("[PoliciesGrid] starting policy save", {
-          environmentGroupId: group?.environmentGroupId,
-          changedRows: changedRows.map((row) => ({
-            ruleId: row.ruleId,
-            groupId: row.groupId,
-            updateKind: row.updateContext?.kind,
-          })),
-        });
+        if (!confirmedSave) {
+          if (!connection || !group) {
+            window.toolboxAPI.utils.showNotification({
+              title: "Cannot confirm policy save",
+              body: "The connection or environment group could not be identified.",
+              type: "error",
+            });
+            return;
+          }
+
+          const changes = changedRows.map((row) => ({
+            key: getRuleKey(row),
+            currentValue: row.currentValueString,
+            value: row.newValueString,
+          }));
+          const changeConfirmation = createWriteConfirmation(
+            "environment group policies",
+            `${connection.name} (${connection.url}) / environment group ${group.displayName}`,
+            changedRows.map(
+              (row) =>
+                `${row.shortDescription}: ${row.currentValueString || "(empty)"} → ${row.newValueString || "(empty)"}`,
+            ),
+            true,
+          );
+          setPendingSave({
+            secondary,
+            groupId: group.environmentGroupId,
+            connectionId: connection.id,
+            changes,
+            confirmation: changeConfirmation,
+          });
+          return;
+        }
+
+        const currentConnection = connection;
+        const currentChanges = changedRows.map((row) => ({
+          key: getRuleKey(row),
+          currentValue: row.currentValueString,
+          value: row.newValueString,
+        }));
+        const changesMatch =
+          currentChanges.length === confirmedSave.changes.length &&
+          confirmedSave.changes.every((expected) =>
+            currentChanges.some(
+              (current) =>
+                current.key === expected.key &&
+                current.currentValue === expected.currentValue &&
+                current.value === expected.value,
+            ),
+          );
+        if (
+          currentConnection?.id !== confirmedSave.connectionId ||
+          group?.environmentGroupId !== confirmedSave.groupId ||
+          !changesMatch
+        ) {
+          window.toolboxAPI.utils.showNotification({
+            title: "Save cancelled",
+            body: "The connection, environment group, or pending changes changed after review. Review the current values and confirm again.",
+            type: "warning",
+            duration: 5000,
+          });
+          return;
+        }
+
+        const isCurrent = () => {
+          const current = currentRef.current;
+          const currentRules =
+            (secondary ? current.secondaryRules : current.loadedRules) ?? [];
+          const pendingRows = currentRules.filter(
+            (row) =>
+              row.edit &&
+              row.updateContext &&
+              (row.dependencyUpdate || !isDependencyLocked(row, currentRules)) &&
+              row.newValueString !== row.currentValueString,
+          );
+          return mountedRef.current &&
+            current.connection?.id === confirmedSave.connectionId &&
+            current.groups[secondary ? 1 : 0]?.environmentGroupId === confirmedSave.groupId &&
+            pendingRows.length === confirmedSave.changes.length &&
+            confirmedSave.changes.every((expected) =>
+              pendingRows.some((row) =>
+                getRuleKey(row) === expected.key &&
+                row.currentValueString === expected.currentValue &&
+                row.newValueString === expected.value,
+              ),
+            );
+        };
+
         secondary ? setSavingSecondary(true) : setSaving(true);
         try {
+          const latestResult = await new EnvMgmt().getEnvGroupRules(
+            confirmedSave.groupId,
+            "primary",
+          );
+          const latestRowsByKey = new Map(
+            latestResult.rules.map((row) => [getRuleKey(row), row]),
+          );
+          if (
+            !haveReviewedValues(
+              confirmedSave.changes,
+              latestResult.rules.map((row) => ({
+                key: getRuleKey(row),
+                currentValue: row.currentValueString,
+              })),
+            )
+          ) {
+            window.toolboxAPI.utils.showNotification({
+              title: "Save cancelled",
+              body: "One or more policy values changed in the environment group after review. Reload the policies, review the latest state, and confirm again.",
+              type: "warning",
+              duration: 6000,
+            });
+            return;
+          }
+          const latestRowsToSave: EnvGroupRuleRow[] = [];
+          for (const row of changedRows) {
+            const latestRow = latestRowsByKey.get(getRuleKey(row));
+            if (!latestRow || !latestRow.updateContext) {
+              window.toolboxAPI.utils.showNotification({
+                title: "Save cancelled",
+                body: "One or more policy values changed in the environment group after review. Reload the policies, review the latest state, and confirm again.",
+                type: "warning",
+                duration: 6000,
+              });
+              return;
+            }
+            latestRowsToSave.push({
+              ...row,
+              currentValueString: latestRow.currentValueString,
+              updateContext: latestRow.updateContext,
+            });
+          }
+
+          const rowsToSave = latestRowsToSave;
           const updates = new Map<
             string,
             { payload: Record<string, unknown>; rows: EnvGroupRuleRow[] }
@@ -629,7 +778,7 @@ export const PoliciesGrid = React.memo(
             }
           >();
 
-          for (const row of changedRows) {
+          for (const row of rowsToSave) {
             const context = row.updateContext!;
             if (context.kind === "policy") {
               const update = policyUpdates.get(context.policyId) ?? {
@@ -653,40 +802,15 @@ export const PoliciesGrid = React.memo(
             }
           }
 
-          console.log("[PoliciesGrid] grouped policy save operations", {
-            ruleSetUpdates: Array.from(updates, ([ruleSetId, update]) => ({
-              ruleSetId,
-              ruleIds: update.rows.map((row) => row.ruleId),
-            })),
-            ruleBasedPolicyUpdates: Array.from(
-              policyUpdates,
-              ([policyId, update]) => ({
-                policyId,
-                ruleIds: update.rows.map((row) => row.ruleId),
-                ruleSetIndices: Array.from(update.ruleSetIndices).sort(
-                  (left, right) => left - right,
-                ),
-              }),
-            ),
-          });
-
           for (const [ruleSetId, update] of updates) {
-            console.log("[PoliciesGrid] sending rule set update", {
-              ruleSetId,
-              ruleIds: update.rows.map((row) => row.ruleId),
-              parameterCount: Array.isArray(update.payload.parameters)
-                ? update.payload.parameters.length
-                : 0,
-            });
+            await assertWriteTarget(
+              window.toolboxAPI.connections, 0, confirmedSave.connectionId, isCurrent,
+            );
             const response = await environmentManagement.updateRuleSet(
               ruleSetId,
               update.payload,
               { connectionTarget: "primary" },
             );
-            console.log("[PoliciesGrid] rule set update response", {
-              ruleSetId,
-              response,
-            });
             const result = response as {
               errors?: { message?: string } | null;
               responseMessage?: string;
@@ -704,14 +828,9 @@ export const PoliciesGrid = React.memo(
             const ruleSets = Array.isArray(update.payload.ruleSets)
               ? (update.payload.ruleSets as Record<string, unknown>[])
               : [];
-            console.log("[PoliciesGrid] sending rule-based policy update", {
-              policyId,
-              ruleIds: update.rows.map((row) => row.ruleId),
-              ruleSetIndices: Array.from(update.ruleSetIndices).sort(
-                (left, right) => left - right,
-              ),
-              ruleSetCount: update.ruleSetIndices.size,
-            });
+            await assertWriteTarget(
+              window.toolboxAPI.connections, 0, confirmedSave.connectionId, isCurrent,
+            );
             const response = await environmentManagement.updateRuleBasedPolicy(
               policyId,
               {
@@ -732,10 +851,6 @@ export const PoliciesGrid = React.memo(
               },
               { connectionTarget: "primary" },
             );
-            console.log("[PoliciesGrid] rule-based policy update response", {
-              policyId,
-              response,
-            });
             const result = response as {
               errors?: { message?: string } | null;
               responseMessage?: string;
@@ -749,53 +864,43 @@ export const PoliciesGrid = React.memo(
             }
           }
 
-          console.log("[PoliciesGrid] policy save completed", {
-            environmentGroupId: group?.environmentGroupId,
-            durationMs: Date.now() - saveStartedAt,
-            changedRowCount: changedRows.length,
-            ruleSetUpdateCount: updates.size,
-            ruleBasedPolicyUpdateCount: policyUpdates.size,
-          });
-
-          const changed = new Set(changedRows);
+          const savedValuesByKey = new Map(
+            rowsToSave.map((row) => [getRuleKey(row), row.newValueString]),
+          );
           updateRules(
             secondary,
             (rows) =>
-              rows?.map((row) =>
-                changed.has(row)
+              rows?.map((row) => {
+                const savedValue = savedValuesByKey.get(getRuleKey(row));
+                return savedValue !== undefined
                   ? {
                       ...row,
-                      currentValueString: row.newValueString,
+                      currentValueString: savedValue,
                       edit: false,
                       isNew: false,
                       dependencyUpdate: false,
                     }
-                  : row,
-              ) ?? null,
+                  : row;
+              }) ?? null,
           );
           window.toolboxAPI.utils.showNotification({
             title: "Policy changes saved",
-            body: `Saved ${changedRows.length} policy value(s) for ${group?.displayName ?? "environment group"}.`,
+            body: `Saved ${rowsToSave.length} policy value(s) for ${group?.displayName ?? "environment group"}.`,
             type: "success",
             duration: 3000,
           });
         } catch (error) {
-          console.error("[PoliciesGrid] policy save failed", {
-            environmentGroupId: group?.environmentGroupId,
-            durationMs: Date.now() - saveStartedAt,
-            error,
-          });
           window.toolboxAPI.utils.showNotification({
-            title: "Failed to save policy changes",
-            body: String(error),
-            type: "error",
+            title: error instanceof WriteTargetChangedError ? "Save cancelled" : "Failed to save policy changes",
+            body: error instanceof Error ? error.message : String(error),
+            type: error instanceof WriteTargetChangedError ? "warning" : "error",
             duration: 4000,
           });
         } finally {
           secondary ? setSavingSecondary(false) : setSaving(false);
         }
       },
-      [groups, loadedRules, secondaryRules, updateRules],
+      [connection, groups, loadedRules, secondaryRules, updateRules],
     );
 
     const renderNewValue = React.useCallback(
@@ -1266,8 +1371,14 @@ export const PoliciesGrid = React.memo(
 
     React.useEffect(() => {
       let cancelled = false;
+      setPendingSave(null);
+      setLoadError(null);
+      setLoadedRules(null);
+      setSecondaryRules(null);
+      setConnectors([]);
+      setSecondaryConnectors([]);
       const loadPolicies = async () => {
-        if (!groups[0]) {
+        if (!groups[0] || !connection) {
           setLoadedRules([]);
           setSecondaryRules(null);
           setConnectors([]);
@@ -1290,22 +1401,47 @@ export const PoliciesGrid = React.memo(
       };
 
       setView("policies");
-      void loadPolicies();
+      void loadPolicies().catch((error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setLoadError(message);
+        setLoadedRules([]);
+        setSecondaryRules(null);
+        window.toolboxAPI.utils.showNotification({
+          title: "Unable to load policies",
+          body: message,
+          type: "error",
+          duration: 6000,
+        });
+      });
       return () => {
         cancelled = true;
       };
-    }, [groups]);
+    }, [groups, connection?.id, connection?.url]);
 
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          height: "100%",
-          minHeight: 0,
-        }}
-      >
+      <>
+        {loadError && <div role="alert">Unable to load policies: {loadError}</div>}
+        <WriteConfirmationDialog
+          confirmation={pendingSave?.confirmation ?? null}
+          onCancel={() => setPendingSave(null)}
+          onConfirm={() => {
+            const confirmedSave = pendingSave;
+            setPendingSave(null);
+            if (confirmedSave) {
+              void saveChanges(confirmedSave.secondary, confirmedSave);
+            }
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            height: "100%",
+            minHeight: 0,
+          }}
+        >
         <KnowledgeSourceEditor
           ref={knowledgeEditorRef}
           onApply={applyKnowledgeSourceValue}
@@ -1435,6 +1571,7 @@ export const PoliciesGrid = React.memo(
           )}
         </div>
       </div>
+      </>
     );
   },
 );
