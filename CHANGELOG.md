@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/LinkeD365/PPTB-EnvManager/compare/1.1.0...1.1.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* correct organization settings, grid exports, and policy drafts ([3b5d5d8](https://github.com/LinkeD365/PPTB-EnvManager/commit/3b5d5d8e84395a58d791ed6e1f58355c89334f02))
+
 ## [Unreleased]
 
 ### Bug Fixes
