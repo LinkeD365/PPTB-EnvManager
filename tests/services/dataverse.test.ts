@@ -4,14 +4,16 @@ import { buildOrganizationSettingsXml } from "../../src/utils/writeConfirmation.
 
 describe("organization settings XML reads", () => {
   const fetchXmlQuery = vi.fn<DataverseAPI.API["fetchXmlQuery"]>();
+  const onLog = vi.fn();
   let service: dvService;
 
   beforeEach(() => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
     vi.stubGlobal("dataverseAPI", { fetchXmlQuery });
     service = new dvService({
       connection: { id: "connection-1" } as ToolBoxAPI.DataverseConnection,
       dvApi: window.dataverseAPI,
-      onLog: vi.fn(),
+      onLog,
     });
   });
 
@@ -27,13 +29,13 @@ describe("organization settings XML reads", () => {
     expect(fetchXmlQuery).toHaveBeenCalledWith(expect.any(String), 0);
   });
 
-  it("ignores whitespace and comments and round-trips decoded text values", async () => {
-    respond(`<orgSettings>
+  it.each(["orgSettings", "OrgSettings"])("reads %s and round-trips decoded text values", async (root) => {
+    respond(`<${root}>
       <!-- Keep the setting values, not formatting nodes -->
       <Flag>true</Flag>
       <Empty />
       <Text>A &amp; B &lt; C</Text>
-    </orgSettings>`);
+    </${root}>`);
     const [id, rows] = await service.getOrgSettings();
     expect(id).toBe("org-1");
     expect(rows.map(({ name, current }) => ({ name, current }))).toEqual([
@@ -46,9 +48,26 @@ describe("organization settings XML reads", () => {
     })))).toBe("<orgSettings><Flag>true</Flag><Empty></Empty><Text>A &amp; B &lt; C</Text></orgSettings>");
   });
 
-  it("accepts an empty orgSettings root", async () => {
-    respond("<orgSettings />");
+  it.each(["orgSettings", "OrgSettings"])("accepts an empty %s root", async (root) => {
+    respond(`<${root} />`);
     expect(await service.getOrgSettings()).toEqual(["org-1", []]);
+  });
+
+  it.each([
+    "<orgSettings><Flag>true</Flag></orgSettings>",
+    "<OrgSettings><Flag>true</Flag></OrgSettings>",
+    "<orgSettings><Flag></orgSettings>",
+  ])("logs the returned XML before validating it: %s", async (xml) => {
+    respond(xml);
+    if (xml.includes("<Flag>true</Flag>")) {
+      await service.getOrgSettings();
+    } else {
+      await expect(service.getOrgSettings()).rejects.toThrow();
+    }
+
+    const diagnostic = `Organization settings XML received (slot 0, connection connection-1, organization org-1):\n${xml}`;
+    expect(onLog).toHaveBeenCalledWith(diagnostic, "info");
+    expect(console.info).toHaveBeenCalledWith(diagnostic);
   });
 
   it.each([
@@ -56,6 +75,8 @@ describe("organization settings XML reads", () => {
     "<unrelated><Flag>true</Flag></unrelated>",
     "<orgSettings><Flag><Nested /></Flag></orgSettings>",
     '<orgSettings><Flag custom="value">true</Flag></orgSettings>',
+    "<OrgSettings><Flag><Nested /></Flag></OrgSettings>",
+    '<OrgSettings><Flag custom="value">true</Flag></OrgSettings>',
   ])("rejects XML that cannot safely be round-tripped: %s", async (xml) => {
     respond(xml);
     await expect(service.getOrgSettings()).rejects.toThrow();

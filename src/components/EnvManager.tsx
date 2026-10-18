@@ -5,6 +5,7 @@ import {
   ModuleRegistry,
   TextFilterModule,
   ClientSideRowModelModule,
+  ClientSideRowModelApiModule,
   themeQuartz,
 } from "ag-grid-community";
 import {
@@ -72,7 +73,11 @@ interface EnvApiInfoItem {
   link?: string;
 }
 
-ModuleRegistry.registerModules([TextFilterModule, ClientSideRowModelModule]);
+ModuleRegistry.registerModules([
+  TextFilterModule,
+  ClientSideRowModelModule,
+  ClientSideRowModelApiModule,
+]);
 
 const myTheme = themeQuartz.withParams({
   headerHeight: "30px",

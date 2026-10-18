@@ -4,6 +4,10 @@
 
 ### Bug Fixes
 
+* [2026-10-18] preserve newer policy drafts and dependency flags when an in-flight save completes
+* [2026-10-18] accept Dataverse organization settings XML with an `OrgSettings` root as well as the existing `orgSettings` form
+* [2026-10-18] log returned organization settings XML and target identifiers before parsing to diagnose XML validation failures
+* [2026-10-18] register the AG Grid client-side row model API module required to export filtered and sorted grid rows
 * [2026-10-18] handle empty and formatted organization settings XML without creating whitespace or comment settings
 * [2026-10-18] recheck host connections and reviewed edits after preflight and before every save request; cancel on target changes
 * [2026-10-18] clear stale policies on connection changes and surface policy-loading failures

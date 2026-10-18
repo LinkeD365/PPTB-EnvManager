@@ -9,11 +9,13 @@ import { deferred } from "../helpers/deferred";
 
 vi.mock("ag-grid-react", () => ({
   AgGridReact: React.forwardRef((props: {
-    rowData?: unknown[];
+    rowData?: Array<{ primaryRule?: EnvGroupRuleRow }>;
     columnDefs?: Array<{
       children?: Array<{
         headerName?: string;
         headerComponent?: React.ComponentType<{ displayName: string }>;
+        colId?: string;
+        cellRenderer?: React.ComponentType<{ data: { primaryRule?: EnvGroupRuleRow } }>;
       }>;
     }>;
   }, _ref) => (
@@ -22,6 +24,20 @@ vi.mock("ag-grid-react", () => ({
         const Header = column.headerComponent;
         return Header ? <Header key={index} displayName={column.headerName ?? ""} /> : null;
       })}
+      {props.rowData?.map((row, index) => (
+        <div key={index} data-testid={`policy-row-${row.primaryRule?.ruleId}`}
+          data-current={row.primaryRule?.currentValueString}
+          data-draft={row.primaryRule?.newValueString}
+          data-edit={String(row.primaryRule?.edit)}
+          data-dependency={String(row.primaryRule?.dependencyUpdate)}>
+          {props.columnDefs?.flatMap((group) => group.children ?? [])
+            .filter((column) => column.colId === "PrimaryNew")
+            .map((column, columnIndex) => {
+              const Cell = column.cellRenderer;
+              return Cell ? <Cell key={columnIndex} data={row} /> : null;
+            })}
+        </div>
+      ))}
     </div>
   )),
 }));
@@ -98,6 +114,38 @@ describe("policy save target safety", () => {
       ));
       expect(writer()).not.toHaveBeenCalled();
     });
+
+    for (const changeDraft of [false, true]) {
+      it(`${kind}: ${changeDraft ? "preserves a newer draft and dependency flag" : "clears saved edit and dependency flags"} after the final write`, async () => {
+        const pendingWrite = deferred<PowerPlatformAPI.PowerPlatformResponse>();
+        vi.mocked(writer()).mockReturnValueOnce(pendingWrite.promise);
+        const { preflight, result } = await start([
+          { ...rule(kind, "first"), dependencyUpdate: true },
+        ]);
+        await act(async () => preflight.resolve(result));
+        await waitFor(() => expect(writer()).toHaveBeenCalledOnce());
+
+        if (changeDraft) {
+          fireEvent.click(screen.getByRole("switch", { name: "Enabled" }));
+        }
+        await act(async () => pendingWrite.resolve({}));
+        await waitFor(() => expect(notify).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Policy changes saved" }),
+        ));
+
+        const row = screen.getByTestId("policy-row-first");
+        expect(row.getAttribute("data-current")).toBe("true");
+        expect(row.getAttribute("data-draft")).toBe(changeDraft ? "false" : "true");
+        expect(row.getAttribute("data-edit")).toBe(String(changeDraft));
+        expect(row.getAttribute("data-dependency")).toBe(String(changeDraft));
+        if (changeDraft) {
+          expect(screen.getByRole("button", { name: "Save policy changes" })).toHaveProperty("disabled", false);
+          expect(screen.getByRole("switch", { name: "Disabled" })).toBeTruthy();
+        } else {
+          expect(screen.queryByRole("button", { name: "Save policy changes" })).toBeNull();
+        }
+      });
+    }
   }
 
   it("rechecks before each request, stopping after a partially applied save", async () => {
