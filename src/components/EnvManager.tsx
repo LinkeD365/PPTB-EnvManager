@@ -51,6 +51,15 @@ import { PoliciesGrid } from "./PoliciesGrid";
 import { ComparisonFilterSwitch } from "./ComparisonFilterButton";
 import { ExcelExportButtons } from "./ExcelExportButtons";
 import { type GridExportRegistration } from "../utils/excelExport";
+import { WriteConfirmationDialog } from "./WriteConfirmationDialog";
+import {
+  buildOrganizationSettingsXml,
+  createWriteConfirmation,
+  haveReviewedValues,
+  type WriteConfirmation,
+} from "../utils/writeConfirmation.mjs";
+import envApiInfoFallback from "../data/PPApiInfo.json";
+import { assertWriteTarget, WriteTargetChangedError } from "../utils/writeTarget";
 
 interface EnvironmentGroupStats {
   count: number;
@@ -62,9 +71,6 @@ interface EnvApiInfoItem {
   shortDescription: string;
   link?: string;
 }
-
-const ENV_API_INFO_URL =
-  "https://raw.githubusercontent.com/LinkeD365/PPTB-EnvManager/main/PPApiInfo.json";
 
 ModuleRegistry.registerModules([TextFilterModule, ClientSideRowModelModule]);
 
@@ -165,10 +171,23 @@ export const EnvManager = observer(
       () => connections.map(getConnectionKey).join("~"),
       [connections],
     );
+    const connectionRef = React.useRef(connection);
+    const connectionsRef = React.useRef(connections);
+    connectionRef.current = connection;
+    connectionsRef.current = connections;
+    const mountedRef = React.useRef(false);
+    React.useEffect(() => {
+      mountedRef.current = true;
+      return () => { mountedRef.current = false; };
+    }, []);
     const hasOtherConnections = connections.some(
       (conn, slot) => slot > 0 && Boolean(conn),
     );
     const [loadingSettings, setLoadingSettings] = React.useState(false);
+    const [pendingWrite, setPendingWrite] = React.useState<{
+      confirmation: WriteConfirmation;
+      onConfirm: () => void;
+    } | null>(null);
     const [selectedTab, setSelectedTab] = React.useState("org-settings");
     const [showOnlyDifferences, setShowOnlyDifferences] = React.useState(false);
     const [isEnvApiLoading, setIsEnvApiLoading] = React.useState(false);
@@ -195,6 +214,10 @@ export const EnvManager = observer(
     const [envApiEnvironmentIds, setEnvApiEnvironmentIds] = React.useState<
       string[]
     >([]);
+    const envApiRowsRef = React.useRef(envApiRows);
+    const envApiEnvironmentIdsRef = React.useRef(envApiEnvironmentIds);
+    envApiRowsRef.current = envApiRows;
+    envApiEnvironmentIdsRef.current = envApiEnvironmentIds;
     const [envApiInfoLookup, setEnvApiInfoLookup] = React.useState<
       Map<string, EnvApiInfoItem>
     >(new Map());
@@ -416,41 +439,15 @@ export const EnvManager = observer(
     }, [envApiInfoLookup]);
 
     React.useEffect(() => {
-      let cancelled = false;
-
-      const loadEnvApiInfo = async () => {
-        try {
-          const response = await fetch(ENV_API_INFO_URL);
-          if (!response.ok) {
-            throw new Error(`Network response was not ok (${response.status})`);
-          }
-
-          const payload = (await response.json()) as EnvApiInfoItem[];
-          console.log("[EnvManager] Loaded environment API info", payload);
-          if (cancelled) {
-            return;
-          }
-
-          const lookup = new Map(
-            payload.map((item) => [item.apiName.trim().toLowerCase(), item]),
-          );
-          setEnvApiInfoLookup(lookup);
-        } catch (err) {
-          if (!cancelled) {
-            onLog(
-              `Unable to load environment setting info: ${String(err)}`,
-              "warning",
-            );
-          }
-        }
-      };
-
-      loadEnvApiInfo();
-
-      return () => {
-        cancelled = true;
-      };
-    }, [onLog]);
+      setEnvApiInfoLookup(
+        new Map(
+          (envApiInfoFallback as EnvApiInfoItem[]).map((item) => [
+            item.apiName.trim().toLowerCase(),
+            item,
+          ]),
+        ),
+      );
+    }, []);
 
     React.useEffect(() => {
       if (envApiInfoLookup.size === 0) {
@@ -503,10 +500,6 @@ export const EnvManager = observer(
               envIds[slot] = otherEnvId;
               loadedSlots[slot] = true;
             } catch (otherErr) {
-              console.warn(
-                `[EnvTabs] ${getSlotLabel(slot)} environment API load failed`,
-                otherErr,
-              );
               onLog(
                 `Unable to load ${getSlotLabel(slot)} environment settings: ${String(otherErr)}`,
                 "warning",
@@ -527,7 +520,6 @@ export const EnvManager = observer(
             "success",
           );
         } catch (err) {
-          console.error("[EnvTabs] Environment API load failed", err);
           if (cancelled) {
             return;
           }
@@ -628,6 +620,12 @@ export const EnvManager = observer(
               `Unable to load environment counts: ${String(err)}`,
               "warning",
             );
+            window.toolboxAPI.utils.showNotification({
+              title: "Unable to load environment counts",
+              body: String(err),
+              type: "warning",
+              duration: 5000,
+            });
           }
         }
       };
@@ -714,38 +712,54 @@ export const EnvManager = observer(
       [],
     );
 
-    const saveEnvironmentSettings = React.useCallback(
-      async (slot = 0) => {
+    const applyEnvironmentSettingsSave = React.useCallback(
+      async (
+        slot: number,
+        targetEnvironmentId: string,
+        expectedConnectionId: string,
+        expectedChanges: Array<{
+          property: string;
+          currentValue: string | number | boolean | null;
+          value: string | number | boolean | null;
+        }>,
+      ) => {
         const targetLabel = getSlotLabel(slot);
-        const targetEnvironmentId = envApiEnvironmentIds[slot];
-
-        if (!targetEnvironmentId) {
-          onLog(
-            `Cannot save ${targetLabel} environment settings: environment id is missing`,
-            "error",
+        const isCurrent = () => {
+          const currentConnection =
+            slot === 0 ? connectionRef.current : connectionsRef.current[slot];
+          const currentEnvironmentId = envApiEnvironmentIdsRef.current[slot];
+          const pendingRows = envApiRowsRef.current.filter(
+            (row) => row.edit && row.editable !== false &&
+              getEnvSlotNew(row, slot) !== getEnvSlotCurrent(row, slot),
           );
-          return;
-        }
+          const changesAreCurrent = pendingRows.length === expectedChanges.length &&
+            expectedChanges.every(({ property, currentValue, value }) =>
+              pendingRows.some((row) =>
+                row.property === property &&
+                getEnvSlotCurrent(row, slot) === currentValue &&
+                getEnvSlotNew(row, slot) === value,
+              ),
+            );
+          return mountedRef.current &&
+            currentConnection?.id === expectedConnectionId &&
+            currentEnvironmentId === targetEnvironmentId &&
+            changesAreCurrent;
+        };
 
-        const editedItems = envApiRows.filter((row) => {
-          if (!row.edit || row.editable === false) {
-            return false;
-          }
-
-          return getEnvSlotNew(row, slot) !== getEnvSlotCurrent(row, slot);
-        });
-
-        if (editedItems.length === 0) {
+        if (!isCurrent()) {
           window.toolboxAPI.utils.showNotification({
-            title: "No changes to save",
-            body:
-              slot > 0
-                ? `No ${targetLabel} environment settings have been modified.`
-                : "No environment settings have been modified.",
+            title: "Save cancelled",
+            body: "The connection, environment, or pending changes changed after review. Review the current values and confirm again.",
+            type: "warning",
+            duration: 5000,
           });
           return;
         }
 
+        const currentRows = envApiRowsRef.current;
+        const editedItems = expectedChanges
+          .map(({ property }) => currentRows.find((row) => row.property === property))
+          .filter((row): row is EnvApiGridRow => Boolean(row));
         setEnvApiSavingSlots((prev) => {
           const next = [...prev];
           next[slot] = true;
@@ -753,13 +767,40 @@ export const EnvManager = observer(
         });
 
         try {
-          const payload = editedItems.reduce<
-            Record<string, string | number | boolean | null>
-          >((acc, item) => {
-            acc[item.property] = getEnvSlotNew(item, slot) ?? null;
-            return acc;
-          }, {});
+          const latestRows = createEnvApiGrid(
+            await getEnvironmentManagementSettings(targetEnvironmentId, {
+              connectionTarget: slot,
+            }),
+          );
+          const serverValuesMatch = haveReviewedValues(
+            expectedChanges.map(({ property, currentValue }) => ({
+              key: property,
+              currentValue,
+            })),
+            expectedChanges.map(({ property }) => ({
+              key: property,
+              currentValue:
+                latestRows.find((row) => row.property === property)?.current ??
+                null,
+            })),
+          );
+          if (!serverValuesMatch) {
+            window.toolboxAPI.utils.showNotification({
+              title: "Save cancelled",
+              body: "One or more environment settings changed in the environment after review. Reload the values, review the latest state, and confirm again.",
+              type: "warning",
+              duration: 6000,
+            });
+            return;
+          }
 
+          const payload = Object.fromEntries(
+            expectedChanges.map(({ property, value }) => [property, value]),
+          );
+
+          await assertWriteTarget(
+            window.toolboxAPI.connections, slot, expectedConnectionId, isCurrent,
+          );
           const response = await updateEnvironmentManagementSettings(
             targetEnvironmentId,
             payload,
@@ -825,6 +866,12 @@ export const EnvManager = observer(
             duration: 3000,
           });
         } catch (err) {
+          if (err instanceof WriteTargetChangedError) {
+            window.toolboxAPI.utils.showNotification({
+              title: "Save cancelled", body: err.message, type: "warning", duration: 6000,
+            });
+            return;
+          }
           const message = String(err);
           onLog(
             `Failed to update ${targetLabel} environment settings: ${message}`,
@@ -844,7 +891,92 @@ export const EnvManager = observer(
           });
         }
       },
-      [envApiEnvironmentIds, envApiRows, onLog],
+      [connection, connections, envApiEnvironmentIds, envApiRows, onLog],
+    );
+
+    const saveEnvironmentSettings = React.useCallback(
+      (slot = 0) => {
+        const targetLabel = getSlotLabel(slot);
+        const targetEnvironmentId = envApiEnvironmentIds[slot];
+
+        if (!targetEnvironmentId) {
+          onLog(
+            `Cannot save ${targetLabel} environment settings: environment id is missing`,
+            "error",
+          );
+          return;
+        }
+
+        const editedItems = envApiRows.filter(
+          (row) =>
+            row.edit &&
+            row.editable !== false &&
+            getEnvSlotNew(row, slot) !== getEnvSlotCurrent(row, slot),
+        );
+
+        if (editedItems.length === 0) {
+          window.toolboxAPI.utils.showNotification({
+            title: "No changes to save",
+            body:
+              slot > 0
+                ? `No ${targetLabel} environment settings have been modified.`
+                : "No environment settings have been modified.",
+          });
+          return;
+        }
+
+        const targetConnection = slot === 0 ? connection : connections[slot];
+        if (!targetConnection) {
+          window.toolboxAPI.utils.showNotification({
+            title: "Save cancelled",
+            body: "The selected connection is no longer available.",
+            type: "error",
+          });
+          return;
+        }
+
+        const expectedChanges = editedItems.map((row) => ({
+          property: row.property,
+          currentValue: getEnvSlotCurrent(row, slot) ?? null,
+          value: getEnvSlotNew(row, slot) ?? null,
+        }));
+        const changeConfirmation = createWriteConfirmation(
+          "environment settings",
+          `${targetConnection.name} (${targetConnection.url})`,
+          expectedChanges.map(({ property, value }) => {
+            const row = envApiRows.find((item) => item.property === property);
+            const currentValue = row
+              ? getEnvSlotCurrent(row, slot)
+              : undefined;
+            const describe = (settingValue: unknown): string =>
+              settingValue === null || settingValue === undefined
+                ? "(not set)"
+                : settingValue === ""
+                  ? "(empty)"
+                  : String(settingValue);
+            return `${property}: ${describe(currentValue)} → ${describe(value)}`;
+          }),
+        );
+
+        setPendingWrite({
+          confirmation: changeConfirmation,
+          onConfirm: () =>
+            void applyEnvironmentSettingsSave(
+              slot,
+              targetEnvironmentId,
+              targetConnection.id,
+              expectedChanges,
+            ),
+        });
+      },
+      [
+        applyEnvironmentSettingsSave,
+        connection,
+        connections,
+        envApiEnvironmentIds,
+        envApiRows,
+        onLog,
+      ],
     );
 
     React.useEffect(() => {
@@ -967,8 +1099,7 @@ export const EnvManager = observer(
           if (
             Array.isArray(viewModel.blankList) &&
             viewModel.blankList.length > 0 &&
-            Array.isArray(settings) &&
-            settings.length > 0
+            Array.isArray(settings)
           ) {
             const rowMap = new Map(
               settings.map((r) => [r.name?.toLowerCase() ?? "", r]),
@@ -978,12 +1109,7 @@ export const EnvManager = observer(
               viewModel.fullList = observable([]);
               viewModel.blankList.forEach((f) => {
                 const match = rowMap.get(f.name?.toLowerCase() ?? "");
-                if (match) {
-                  // Prefer the value from rows for current if present
-                  if (match.current && match.current !== "") {
-                    f.current = match.current;
-                  }
-                }
+                setSlotCurrent(f, 0, match?.current);
                 viewModel.fullList.push(f);
               });
             });
@@ -1017,7 +1143,7 @@ export const EnvManager = observer(
                     setting.name?.toLowerCase() ?? "",
                   );
                   // Prefer the value from rows for current if present
-                  if (match && match.current && match.current !== "") {
+                  if (match) {
                     setSlotCurrent(setting, slot, match.current);
                   }
                 });
@@ -1051,113 +1177,206 @@ export const EnvManager = observer(
       setLoadingSettings(false);
     };
 
-    function saveOrgSettings(slot = 0): void {
-      let editedItems = viewModel.fullList.filter((i) => i.edit);
-      if (editedItems.length === 0) {
+    async function applyOrgSettingsSave(
+      slot: number,
+      expectedConnectionId: string,
+      expectedOrgId: string,
+      expectedValues: Array<{
+        item: orgProp;
+        name: string;
+        currentValue: string | undefined;
+        value: string;
+      }>,
+    ): Promise<void> {
+      const isCurrent = () => {
+        const pendingRows = viewModel.fullList.filter(
+          (item) => item.edit &&
+            getSlotNew(item, slot) !== getSlotCurrent(item, slot),
+        );
+        const currentValuesMatch = pendingRows.length === expectedValues.length &&
+          expectedValues.every(
+            ({ item, name, currentValue, value }) =>
+              pendingRows.includes(item) &&
+              item.name === name &&
+              getSlotCurrent(item, slot) === currentValue &&
+              getSlotNew(item, slot) === value,
+          );
+        return mountedRef.current &&
+          (slot === 0 ? connectionRef.current : connectionsRef.current[slot])
+            ?.id === expectedConnectionId &&
+          viewModel.orgIds[slot] === expectedOrgId &&
+          currentValuesMatch;
+      };
+      if (!isCurrent()) {
         window.toolboxAPI.utils.showNotification({
-          title: "No changes to save",
-          body: "No items are in edit mode.",
+          title: "Save cancelled",
+          body: "The connection, organization, or pending changes changed after review. Review the current values and confirm again.",
+          type: "warning",
+          duration: 5000,
         });
-        onLog("No changes to save", "info");
         return;
       }
-      editedItems = editedItems.filter(
-        (item) => getSlotNew(item, slot) !== getSlotCurrent(item, slot),
+
+      const savedValues = new Map<orgProp, string>(
+        expectedValues.map(({ item, value }) => [item, value]),
+      );
+      window.toolboxAPI.utils.showNotification({
+        title: "Saving organization settings...",
+        body: `Saving ${expectedValues.length} organization setting(s)...`,
+        type: "info",
+        duration: 3000,
+      });
+      onLog(
+        `Saving ${expectedValues.length} organization setting(s)...`,
+        "info",
+      );
+      try {
+        const [latestOrgId, latestSettings] = await dvService.getOrgSettings(slot);
+        if (latestOrgId !== expectedOrgId) {
+          window.toolboxAPI.utils.showNotification({
+            title: "Save cancelled",
+            body: "The organization changed after review. Reload the values and confirm the save again.",
+            type: "warning",
+            duration: 6000,
+          });
+          return;
+        }
+
+        const latestByName = new Map(
+          latestSettings.map((setting) => [
+            setting.name.toLowerCase(),
+            { name: setting.name, value: setting.current },
+          ]),
+        );
+        const serverValuesMatch = haveReviewedValues(
+          expectedValues.map(({ name, currentValue }) => ({
+            key: name.toLowerCase(),
+            currentValue: currentValue ?? "",
+          })),
+          expectedValues.map(({ name }) => ({
+            key: name.toLowerCase(),
+            currentValue: latestByName.get(name.toLowerCase())?.value ?? "",
+          })),
+        );
+        if (!serverValuesMatch) {
+          window.toolboxAPI.utils.showNotification({
+            title: "Save cancelled",
+            body: "One or more organization settings changed in Dataverse after review. Reload the values, review the latest state, and confirm again.",
+            type: "warning",
+            duration: 6000,
+          });
+          return;
+        }
+
+        for (const { name, value } of expectedValues) {
+          const key = name.toLowerCase();
+          latestByName.set(key, {
+            name: latestByName.get(key)?.name ?? name,
+            value,
+          });
+        }
+        const updateString = buildOrganizationSettingsXml(
+          Array.from(latestByName.values()),
+        );
+        await assertWriteTarget(
+          window.toolboxAPI.connections, slot, expectedConnectionId, isCurrent,
+        );
+        const result = await dvService.updateOrgSettingsXml(
+          updateString,
+          expectedOrgId,
+          slot,
+        );
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+
+        await window.toolboxAPI.utils.showNotification({
+          title: "Organization Settings Saved",
+          body: "The organization settings have been successfully saved.",
+        });
+
+        runInAction(() => {
+          savedValues.forEach((savedValue, item) => {
+            setSlotCurrent(item, slot, savedValue);
+            item.edit = connections.some(
+              (_, pendingSlot) =>
+                getSlotNew(item, pendingSlot) !==
+                getSlotCurrent(item, pendingSlot),
+            );
+          });
+        });
+
+        onLog("Organization settings saved", "success");
+      } catch (err) {
+        if (err instanceof WriteTargetChangedError) {
+          window.toolboxAPI.utils.showNotification({
+            title: "Save cancelled", body: err.message, type: "warning", duration: 6000,
+          });
+          return;
+        }
+        await window.toolboxAPI.utils.showNotification({
+          title: "Failed to save organization settings",
+          body: `Error: ${String(err)}`,
+          type: "error",
+          duration: 3000,
+        });
+        onLog(`Failed to save org settings: ${String(err)}`, "error");
+      }
+    }
+
+    function saveOrgSettings(slot = 0): void {
+      const editedItems = viewModel.fullList.filter(
+        (item) =>
+          item.edit &&
+          getSlotNew(item, slot) !== getSlotCurrent(item, slot),
       );
       if (editedItems.length === 0) {
         window.toolboxAPI.utils.showNotification({
           title: "No changes to save",
-          body: "No values have been modified.",
+          body: "No organization settings have been modified.",
         });
         onLog("No changes to save", "info");
         return;
       }
 
       const conn = slot === 0 ? connection : connections[slot];
-      const savedValues = new Map<orgProp, string>(
-        editedItems.map(
-          (item): [orgProp, string] => [
-            item,
-            getSlotNew(item, slot) ?? getSlotCurrent(item, slot) ?? "",
-          ],
-        ),
-      );
-      (async () => {
-        if (!conn) {
-          await window.toolboxAPI.utils.showNotification({
-            title: "No active connection",
-            body: "Cannot save settings without an active connection.",
-            type: "error",
-            duration: 3000,
-          });
-          onLog("No active connection. Cannot save settings.", "error");
-          return;
-        }
-
+      const orgId = viewModel.orgIds[slot];
+      if (!conn || !orgId) {
         window.toolboxAPI.utils.showNotification({
-          title: "Saving organization settings...",
-          body: `Saving ${editedItems.length} organization setting(s)...`,
-          type: "info",
-          duration: 3000,
+          title: "Cannot confirm save",
+          body: "The selected connection or organization could not be identified.",
+          type: "error",
         });
-        onLog(
-          `Saving ${editedItems.length} organization setting(s)...`,
-          "info",
-        );
-        try {
-          let updateString = "<orgSettings>";
-          const settingsList = viewModel.fullList.filter(
-            (it) => getSlotCurrent(it, slot) || getSlotNew(it, slot),
-          );
-          settingsList.forEach((it) => {
-            updateString += `<${it.name}>${getSlotNew(it, slot) ?? getSlotCurrent(it, slot)}</${it.name}>`;
-          });
-          updateString += "</orgSettings>";
-          await dvService
-            .updateOrgSettingsXml(
-              updateString,
-              viewModel.orgIds[slot] ?? "",
-              slot,
-            )
-            .then(async (result) => {
-              if (!result.success) {
-                throw new Error(result.error);
-              }
-              await window.toolboxAPI.utils.showNotification({
-                title: "Organization Settings Saved",
-                body: "The organization settings have been successfully saved.",
-              });
-            });
+        onLog("Cannot confirm organization settings save: missing target", "error");
+        return;
+      }
 
-          runInAction(() => {
-            savedValues.forEach((savedValue, item) => {
-              setSlotCurrent(item, slot, savedValue);
-              item.edit = connections.some(
-                (_, pendingSlot) =>
-                  getSlotNew(item, pendingSlot) !==
-                  getSlotCurrent(item, pendingSlot),
-              );
-            });
-          });
+      const expectedValues = editedItems.map((item) => ({
+        item,
+        name: item.name,
+        currentValue: getSlotCurrent(item, slot),
+        value: getSlotNew(item, slot) ?? getSlotCurrent(item, slot) ?? "",
+      }));
+      const changeConfirmation = createWriteConfirmation(
+        "organization settings",
+        `${conn.name} (${conn.url})`,
+        expectedValues.map(({ name, currentValue, value }) => {
+          const describe = (settingValue: string | undefined): string =>
+            settingValue === undefined ? "(not set)" : settingValue === "" ? "(empty)" : settingValue;
+          return `${name}: ${describe(currentValue)} → ${describe(value)}`;
+        }),
+      );
 
-          onLog("Organization settings saved", "success");
-        } catch (err) {
-          await window.toolboxAPI.utils.showNotification({
-            title: "Failed to save organization settings",
-            body: `Error: ${String(err)}`,
-            type: "error",
-            duration: 3000,
-          });
-          onLog(`Failed to save org settings: ${String(err)}`, "error");
-        } finally {
-          window.toolboxAPI.utils.showNotification({
-            title: "Save operation completed",
-            body: "The save operation has completed.",
-            type: "info",
-            duration: 1000,
-          });
-        }
-      })();
+      setPendingWrite({
+        confirmation: changeConfirmation,
+        onConfirm: () =>
+          void applyOrgSettingsSave(
+            slot,
+            conn.id,
+            orgId,
+            expectedValues,
+          ),
+      });
     }
 
     if (isLoading || loadingSettings) {
@@ -1267,14 +1486,24 @@ export const EnvManager = observer(
       (!envGroupsLoaded || envGroupsRows.length === 0);
 
     return (
-      <div
-        style={{
-          width: "100%",
-          height: "98vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      <>
+        <WriteConfirmationDialog
+          confirmation={pendingWrite?.confirmation ?? null}
+          onCancel={() => setPendingWrite(null)}
+          onConfirm={() => {
+            const confirmedWrite = pendingWrite;
+            setPendingWrite(null);
+            confirmedWrite?.onConfirm();
+          }}
+        />
+        <div
+          style={{
+            width: "100%",
+            height: "98vh",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
         <div
           style={{
             flex: 1,
@@ -1396,6 +1625,7 @@ export const EnvManager = observer(
               (selectedEnvironmentGroups.length > 0 ? (
                 <PoliciesGrid
                   groups={selectedEnvironmentGroups}
+                  connection={connection}
                   theme={myTheme}
                   showOnlyDifferences={showOnlyDifferences}
                   onBack={() => setSelectedEnvironmentGroups([])}
@@ -1416,7 +1646,8 @@ export const EnvManager = observer(
               ))}
           </div>
         </div>
-      </div>
+        </div>
+      </>
     );
   },
 );

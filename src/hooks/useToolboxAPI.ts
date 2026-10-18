@@ -18,6 +18,12 @@ export function useConnection() {
       setConnections((conns ?? []).slice(0, MAX_CONNECTIONS).map((c) => c ?? null));
     } catch (error) {
       console.error("Error refreshing connection:", error);
+      window.toolboxAPI.utils.showNotification({
+        title: "Unable to load connections",
+        body: error instanceof Error ? error.message : String(error),
+        type: "error",
+        duration: 5000,
+      });
     } finally {
       setIsLoading(false);
     }

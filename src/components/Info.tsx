@@ -21,6 +21,14 @@ interface InfoPopupProps {
   item: orgProp;
 }
 
+function descriptionText(markup: string | undefined): string {
+  if (!markup) {
+    return "";
+  }
+
+  return new DOMParser().parseFromString(markup, "text/html").body.textContent ?? "";
+}
+
 export const InfoPopup = ({ item }: InfoPopupProps): React.JSX.Element => (
   <TeachingPopover>
     <TeachingPopoverTrigger>
@@ -32,11 +40,10 @@ export const InfoPopup = ({ item }: InfoPopupProps): React.JSX.Element => (
         <TeachingPopoverCarouselCard value="1">
           <TeachingPopoverBody>
             <div
-              style={{ marginTop: 8, maxWidth: "300px", marginBottom: 16 }}
-              dangerouslySetInnerHTML={{
-                __html: item.description || "",
-              }}
-            />
+              style={{ marginTop: 8, maxWidth: "300px", marginBottom: 16, whiteSpace: "pre-wrap" }}
+            >
+              {descriptionText(item.description)}
+            </div>
             {/* {item.url ? (<>
             <a href={item.url} target="_blank" rel="noopener noreferrer">test</a>
           <Link href={item.url} target="_blank" rel="noopener noreferrer">
@@ -55,11 +62,10 @@ export const InfoPopup = ({ item }: InfoPopupProps): React.JSX.Element => (
             <TeachingPopoverBody>
               {" "}
               <div
-                style={{ marginTop: 8, maxWidth: "300px", marginBottom: 16 }}
-                dangerouslySetInnerHTML={{
-                  __html: item.linkeD365Description || "",
-                }}
-              />
+               style={{ marginTop: 8, maxWidth: "300px", marginBottom: 16, whiteSpace: "pre-wrap" }}
+              >
+               {descriptionText(item.linkeD365Description)}
+              </div>
             </TeachingPopoverBody>
           </TeachingPopoverCarouselCard>
         )}
